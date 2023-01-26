@@ -15,8 +15,10 @@ NUM_WORKERS = 0
 
 DEFAULT_PARAMETERS = HyperParameters(
     random_seed=1424,
+    use_sd_readouts=False,
     k_folds=6,
-    train_test_split=0.8,
+    test_split=0.2,
+    train_val_split=0.8,
     batch_size=32,
     early_stop_patience=10,
     early_stop_min_delta=0.01,
@@ -27,9 +29,9 @@ DEFAULT_PARAMETERS = HyperParameters(
 DEFAULT_METRICS = MetricCollection([
     MeanAbsoluteError(),
     MeanSquaredError(squared=False),
-    R2Score(),
     PearsonCorrCoef(),
     PearsonCorrCoefSquared(),
+    R2Score()
 ])
 
 

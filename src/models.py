@@ -11,11 +11,14 @@ from torch_geometric.nn import (
     Sequential as SequentialGNN
 )
 
+
 @dataclass
 class HyperParameters:
     random_seed: int
+    use_sd_readouts: bool
     k_folds: int
-    train_test_split: float
+    test_split: float
+    train_val_split: float
     batch_size: int
     early_stop_patience: int
     early_stop_min_delta: float
@@ -42,6 +45,7 @@ class PoolingFunction(Enum):
 
 @dataclass
 class ModelArchitecture:
+    name: str  # For logging
     layer_types: List[GNNLayer]
     features: List[int]
     activation_funcs: List[ActivationFunction]
@@ -80,8 +84,9 @@ def construct_model(arch: ModelArchitecture) -> SequentialGNN:
 def _construct_layer(layer_type, num_in, num_out):
     match layer_type:
         case GNNLayer.GIN:
+            # TODO: Add customisable layer architectures
             num_hidden = int(math.sqrt(num_in + num_out))
             mlp = Sequential(Linear(num_in, num_hidden), ReLU(), Linear(16, num_hidden))
             args = (mlp,)
         case _: args = (num_in, num_out)
-    return layer_type(*args)
+    return layer_type.value(*args)
