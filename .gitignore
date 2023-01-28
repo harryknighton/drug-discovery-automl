@@ -1,5 +1,6 @@
 .idea
-data/**/processed/
+data/
 **/.ipynb_checkpoints
 **/lightning_logs/
 logs/
+**/__pycache__
