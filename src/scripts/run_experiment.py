@@ -5,7 +5,7 @@ if __name__ == '__main__':
     gcn_architecture = ModelArchitecture(
         name='gcn',
         layer_types=[GNNLayer.GCN, GNNLayer.GCN, GNNLayer.GCN],
-        features=[133, 64, 16, 1],
+        features=[113, 64, 64, 1],
         activation_funcs=[ActivationFunction.ReLU, ActivationFunction.ReLU, None],
         pool_func=PoolingFunction.MEAN
     )
@@ -19,7 +19,7 @@ if __name__ == '__main__':
         batch_size=32,
         early_stop_patience=30,
         early_stop_min_delta=0.01,
-        lr=0.0001,
+        lr=0.001,
         max_epochs=100
     )
-    run_experiment('no_fold', 'AID1445', [gcn_architecture], params, [1424])
+    run_experiment('mini_network', 'AID1445', [gcn_architecture], params, [1424])

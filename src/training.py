@@ -2,8 +2,7 @@ import logging
 from typing import List
 
 import numpy as np
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
-from torch import Tensor
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
 from torch.nn import MSELoss
 from torch.optim import AdamW
 import pytorch_lightning as tl
@@ -95,8 +94,7 @@ def perform_run(dataset: HTSDataset, architecture: ModelArchitecture, params: Hy
         batch_size=params.batch_size, num_workers=NUM_WORKERS
     )
     result = train_model(architecture, params, datamodule, run_dir)
-    # TODO: Add logging of single value results
-    result = {key: {'mean': float(value)} for key, value in result.items()}  # Allows saving using write_experiment_results
+    result = {key: {'mean': float(value)} for key, value in result.items()}  # Conform to write_experiment_results()
     save_run(result, architecture, params, run_dir)
     return result
 
@@ -143,7 +141,7 @@ def train_model(architecture: ModelArchitecture, params: HyperParameters, datamo
         max_epochs=params.max_epochs,
         callbacks=[checkpoint_callback, early_stop_callback],
         enable_progress_bar=False,
-        enable_model_summary=False,
+        enable_model_summary=True,
     )
 
     trainer.fit(model, datamodule=datamodule)

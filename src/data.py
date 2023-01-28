@@ -42,6 +42,7 @@ def _read_data(filepath: str) -> pd.DataFrame:
 
 
 def _process_data(df: pd.DataFrame, sd_or_dr) -> List[Data]:
+    _set_atomic_num(80)
     smiles = df['neut-smiles']
     mols = [chemprop.features.featurization.MolGraph(s) for s in smiles]
     xs = [Tensor(m.f_atoms) for m in mols]
@@ -61,11 +62,18 @@ def _get_connectivity(mol):
     return connections
 
 
+def _set_atomic_num(num):
+    """Set the number of features used when one-hot encoding atomic numbers"""
+    params = chemprop.features.featurization.PARAMS
+    params.MAX_ATOMIC_NUM = num
+    params.ATOM_FEATURES['atomic_num'] = list(range(num))
+    params.ATOM_FDIM = sum(len(choices) + 1 for choices in params.ATOM_FEATURES.values()) + 2
+
+
 def split_dataset(dataset, ratio):
     split = int(ratio * len(dataset))
     indices = list(range(len(dataset)))
     random.shuffle(indices)
-    # TODO: Randomly split dataset
     training_dataset = dataset.index_select(indices[:split])
     validation_dataset = dataset.index_select(indices[split:])
     return training_dataset, validation_dataset
