@@ -45,7 +45,6 @@ class PoolingFunction(Enum):
 
 @dataclass
 class ModelArchitecture:
-    name: str  # For logging
     layer_types: List[GNNLayer]
     features: List[int]
     activation_funcs: List[ActivationFunction]

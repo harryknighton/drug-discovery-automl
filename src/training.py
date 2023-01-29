@@ -80,7 +80,7 @@ def run_experiment(experiment_name: str, dataset_name: str, architectures: List[
             else:
                 raise ValueError(f"k_folds={params.k_folds} must be positive")
             architecture_results[seed] = run_result
-        results[architecture.name] = architecture_results
+        results[str(architecture)] = architecture_results
     save_experiment_results(results, experiment_dir)
 
 
