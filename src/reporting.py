@@ -5,7 +5,7 @@ from datetime import datetime
 import pandas as pd
 import torch
 from torch import Tensor
-from torchmetrics import PearsonCorrCoef
+from torchmetrics import PearsonCorrCoef, MeanSquaredError
 
 
 class PearsonCorrCoefSquared(PearsonCorrCoef):
@@ -13,6 +13,11 @@ class PearsonCorrCoefSquared(PearsonCorrCoef):
     def compute(self) -> Tensor:
         r = super(PearsonCorrCoefSquared, self).compute()
         return torch.pow(r, 2)
+
+
+class RootMeanSquaredError(MeanSquaredError):
+    def __init__(self):
+        super(RootMeanSquaredError, self).__init__(squared=False)
 
 
 def generate_experiment_dir(dataset_name, using_sd_readouts, name):

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from torchmetrics import MetricCollection, R2Score, MeanAbsoluteError, MeanSquaredError, PearsonCorrCoef
 
-from src.reporting import PearsonCorrCoefSquared
+from src.reporting import PearsonCorrCoefSquared, RootMeanSquaredError
 from src.models import HyperParameters
 
 DATAFILE_NAME = 'SD.csv'
@@ -28,10 +28,8 @@ DEFAULT_PARAMETERS = HyperParameters(
 
 DEFAULT_METRICS = MetricCollection([
     MeanAbsoluteError(),
-    MeanSquaredError(squared=False),
+    RootMeanSquaredError(),
     PearsonCorrCoef(),
     PearsonCorrCoefSquared(),
     R2Score()
 ])
-
-
