@@ -1,20 +1,21 @@
-from src.models import ModelArchitecture, Layer, ActivationFunction, PoolingFunction, HyperParameters, \
+from src.models import ModelArchitecture, LayerType, ActivationFunction, PoolingFunction, HyperParameters, \
     GNNArchitecture
 from src.training import run_experiment
 
 if __name__ == '__main__':
-    regression_architecture = ModelArchitecture(
-        layer_types=[Layer.Linear, Layer.Linear, Layer.Linear],
-        features=[256, 128, 128, 1],
-        activation_funcs=[ActivationFunction.ReLU, ActivationFunction.ReLU, None],
+    regression_layer = ModelArchitecture(
+        layer_types=[LayerType.Linear],
+        features=[256, 1],
+        activation_funcs=[None],
+        batch_normalise=[False]
     )
-
     gcn_architecture = GNNArchitecture(
-        layer_types=[Layer.GCN, Layer.GCN],
-        features=[113, 256, 256],
-        activation_funcs=[ActivationFunction.ReLU, None],
+        layer_types=[LayerType.GCN, LayerType.GCN, LayerType.GCN],
+        features=[113, 256, 256, 256],
+        activation_funcs=[ActivationFunction.ReLU, ActivationFunction.ReLU, ActivationFunction.ReLU],
         pool_func=PoolingFunction.MEAN,
-        regression_layer=regression_architecture
+        batch_normalise=[True, True, False],
+        regression_layer=regression_layer
     )
 
     params = HyperParameters(
@@ -29,4 +30,4 @@ if __name__ == '__main__':
         lr=0.0001,
         max_epochs=100
     )
-    run_experiment('regression_layer', 'AID1445', [gcn_architecture], params, [1424])
+    run_experiment('pool_first', 'AID1445', [gcn_architecture], params, [1424])
