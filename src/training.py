@@ -63,7 +63,7 @@ class LitGNN(tl.LightningModule):
         return loss
 
 
-def run_experiment(experiment_name: str, dataset_name: str, architectures: List[ModelArchitecture], params: HyperParameters, random_seeds: List[int]):
+def run_experiment(experiment_name: str, dataset_name: str, architectures: List[GNNArchitecture], params: HyperParameters, random_seeds: List[int]):
     """Perform a series of runs of different architectures and save the results"""
     experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, params.use_sd_readouts, experiment_name)
     dataset_dir = DATA_DIR / dataset_name
@@ -87,7 +87,7 @@ def run_experiment(experiment_name: str, dataset_name: str, architectures: List[
     save_experiment_results(results, experiment_dir)
 
 
-def perform_run(dataset: HTSDataset, architecture: ModelArchitecture, params: HyperParameters, experiment_dir):
+def perform_run(dataset: HTSDataset, architecture: GNNArchitecture, params: HyperParameters, experiment_dir):
     """Perform a single run over the dataset"""
     run_dir = experiment_dir / generate_run_name()
     test_dataset, training_dataset = split_dataset(dataset, params.test_split)
@@ -102,7 +102,7 @@ def perform_run(dataset: HTSDataset, architecture: ModelArchitecture, params: Hy
     return result
 
 
-def perform_k_fold_run(dataset: HTSDataset, architecture: ModelArchitecture, params: HyperParameters, experiment_dir):
+def perform_k_fold_run(dataset: HTSDataset, architecture: GNNArchitecture, params: HyperParameters, experiment_dir):
     """Perform multiple runs using k-fold cross validation and return the average results"""
     run_dir = experiment_dir / generate_run_name()
     training_dataset, test_dataset = split_dataset(dataset, params.test_split)
@@ -118,7 +118,7 @@ def perform_k_fold_run(dataset: HTSDataset, architecture: ModelArchitecture, par
     return result
 
 
-def train_model(architecture: ModelArchitecture, params: HyperParameters, datamodule: LightningDataModule, run_dir):
+def train_model(architecture: GNNArchitecture, params: HyperParameters, datamodule: LightningDataModule, run_dir):
     model = LitGNN(architecture, params, DEFAULT_METRICS)
 
     checkpoint_callback = ModelCheckpoint(
