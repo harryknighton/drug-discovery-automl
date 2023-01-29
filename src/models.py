@@ -26,11 +26,12 @@ class HyperParameters:
     max_epochs: int
 
 
-class GNNLayer(Enum):
+class Layer(Enum):
     GCN = GCNConv
     GIN = GINConv
     GAT = GATConv
     GATv2 = GATv2Conv
+    Linear = Linear
 
 
 class ActivationFunction(Enum):
@@ -45,25 +46,39 @@ class PoolingFunction(Enum):
 
 @dataclass
 class ModelArchitecture:
-    layer_types: List[GNNLayer]
+    layer_types: List[Layer]
     features: List[int]
     activation_funcs: List[ActivationFunction]
-    pool_func: PoolingFunction
 
     def __str__(self):
+        return f"ModelArchitecture({self._base_inner_str()})"
+
+    def _base_inner_str(self):
         layer_names = [layer.name for layer in self.layer_types]
         activation_names = [func.name if func is not None else 'None' for func in self.activation_funcs]
-        return inspect.cleandoc(f"""
-            ModelArchitecture(
-                Layers: [{', '.join(layer_names)}],
-                Features: {self.features},
-                Activation Functions: [{', '.join(activation_names)}],
-                Pool Function: {self.pool_func.__name__}
-            )
-        """)
+        return (
+            f"Layers: [{', '.join(layer_names)}], "
+            f"Features: {self.features}, "
+            f"Activation Functions: [{', '.join(activation_names)}]"
+        )
 
 
-def construct_model(arch: ModelArchitecture) -> SequentialGNN:
+@dataclass
+class GNNArchitecture(ModelArchitecture):
+    pool_func: PoolingFunction
+    regression_layer: ModelArchitecture
+
+    def __str__(self):
+        return (
+            "GNNArchitecture("
+            f"{self._base_inner_str()}, "
+            f"Pool Function: {self.pool_func.__name__}, "
+            f"Regression Layer: {str(self.regression_layer)}"
+            ")"
+        )
+
+
+def construct_gnn(arch: GNNArchitecture) -> SequentialGNN:
     global_inputs = "x, edge_index, batch"
     layers = []
     for layer_type, num_in, num_out, activation in zip(
@@ -80,9 +95,24 @@ def construct_model(arch: ModelArchitecture) -> SequentialGNN:
     return SequentialGNN(global_inputs, layers)
 
 
+def construct_mlp(arch: ModelArchitecture) -> Sequential:
+    layers = []
+    for layer_type, num_in, num_out, activation in zip(
+        arch.layer_types,
+        arch.features[:-1],
+        arch.features[1:],
+        arch.activation_funcs
+    ):
+        layer = _construct_layer(layer_type, num_in, num_out)
+        layers.append(layer)
+        if activation is not None:
+            layers.append(activation.value())
+    return Sequential(*layers)
+
+
 def _construct_layer(layer_type, num_in, num_out):
     match layer_type:
-        case GNNLayer.GIN:
+        case Layer.GIN:
             # TODO: Add customisable layer architectures
             num_hidden = int(math.sqrt(num_in + num_out))
             mlp = Sequential(Linear(num_in, num_hidden), ReLU(), Linear(16, num_hidden))

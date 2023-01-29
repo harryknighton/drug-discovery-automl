@@ -2,38 +2,42 @@ import logging
 from typing import List
 
 import numpy as np
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from torch.nn import MSELoss
 from torch.optim import AdamW
 import pytorch_lightning as tl
 from torch_geometric.data import LightningDataset
 from torch_geometric.data.lightning_datamodule import LightningDataModule
+from torchmetrics import MetricCollection
 
 from src.config import DATA_DIR, NUM_WORKERS, DEFAULT_METRICS, LOG_DIR
 from src.data import split_dataset, k_folds, HTSDataset
-from src.models import construct_model, HyperParameters, ModelArchitecture
+from src.models import construct_gnn, construct_mlp, HyperParameters, ModelArchitecture, GNNArchitecture
 from src.reporting import generate_experiment_dir, generate_run_name, save_run, save_experiment_results
 
 
 class LitGNN(tl.LightningModule):
-    def __init__(self, architecture, params, metrics):
+    def __init__(self, architecture: GNNArchitecture, params: HyperParameters, metrics: MetricCollection):
         super().__init__()
-        self.gnn = construct_model(architecture)
+        self.gnn = construct_gnn(architecture)
+        self.regression_mlp = construct_mlp(architecture.regression_layer)
         self.params = params
         self.loss = MSELoss()
         self.val_metrics = metrics.clone()
         self.test_metrics = metrics.clone()
         self.test_results = None
 
+    def forward(self, x, edge_index, batch):
+        embedding = self.gnn(x, edge_index, batch)
+        return self.regression_mlp(embedding)
+
     def training_step(self, data, idx):
-        pred = self.gnn(data.x, data.edge_index, data.batch)
-        pred = pred.flatten()
-        loss = self._report_loss(pred, data.y, 'train')
+        pred = self.forward(data.x, data.edge_index, data.batch)
+        loss = self._report_loss(pred.flatten(), data.y, 'train')
         return loss
 
     def validation_step(self, data, idx):
-        pred = self.gnn(data.x, data.edge_index, data.batch)
-        pred = pred.flatten()
+        pred = self.forward(data.x, data.edge_index, data.batch).flatten()
         self._report_loss(pred, data.y, 'val')
         self.val_metrics.update(pred, data.y)
 
@@ -42,8 +46,7 @@ class LitGNN(tl.LightningModule):
         self.val_metrics.reset()
 
     def test_step(self, data, idx):
-        pred = self.gnn(data.x, data.edge_index, data.batch)
-        pred = pred.flatten()
+        pred = self.forward(data.x, data.edge_index, data.batch).flatten()
         self.test_metrics.update(pred, data.y)
 
     def test_epoch_end(self, outputs):
