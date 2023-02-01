@@ -1,6 +1,7 @@
 import math
 from dataclasses import dataclass
 from enum import Enum
+from functools import partial
 from typing import List, Optional
 
 from torch.nn import ReLU, Linear, Sequential
@@ -38,9 +39,12 @@ class ActivationFunction(Enum):
 
 
 class PoolingFunction(Enum):
-    MEAN = global_mean_pool
-    MAX = global_max_pool
-    ADD = global_add_pool
+    MEAN = partial(global_mean_pool)
+    MAX = partial(global_max_pool)
+    ADD = partial(global_add_pool)
+
+    def __call__(self, *args, **kwargs):
+        self.value(*args, **kwargs)
 
 
 @dataclass
