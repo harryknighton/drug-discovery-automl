@@ -13,6 +13,8 @@ LOG_DIR = ROOT_DIR / 'logs'
 
 NUM_WORKERS = 0
 
+DEFAULT_N_FEATURES = 113
+
 DEFAULT_PARAMETERS = HyperParameters(
     random_seed=1424,
     use_sd_readouts=False,

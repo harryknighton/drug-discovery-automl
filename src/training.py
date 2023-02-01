@@ -58,6 +58,7 @@ class LitGNN(tl.LightningModule):
         return optimiser
 
     def _report_loss(self, pred, y, prefix):
+        # TODO: Remove slash from name
         loss = self.loss(pred, y)
         self.log('loss/' + prefix, loss, batch_size=y.shape[0])
         return loss
@@ -124,7 +125,7 @@ def train_model(architecture: GNNArchitecture, params: HyperParameters, datamodu
         max_epochs=params.max_epochs,
         callbacks=[checkpoint_callback, early_stop_callback],
         enable_progress_bar=False,
-        enable_model_summary=True,
+        enable_model_summary=False,
     )
 
     trainer.fit(model, datamodule=datamodule)
