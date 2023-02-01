@@ -76,7 +76,7 @@ class GNNArchitecture(ModelArchitecture):
         return (
             "GNNArchitecture("
             f"{self._base_inner_str()}, "
-            f"Pool Function: {self.pool_func.__name__}, "
+            f"Pool Function: {self.pool_func.name}, "
             f"Regression Layer: {str(self.regression_layer)}"
             ")"
         )
@@ -95,7 +95,7 @@ def construct_gnn(arch: GNNArchitecture) -> SequentialGNN:
         layer = _construct_layer(layer_type, num_in, num_out)
         layers.append((layer, "x, edge_index -> x"))
         if i == num_layers - 1:
-            layers.append((arch.pool_func, "x, batch -> x"))
+            layers.append((arch.pool_func.value, "x, batch -> x"))
         if normalise:
             layers.append(BatchNorm(num_out))
         if activation is not None:
