@@ -1,7 +1,7 @@
 import random
+from pathlib import Path
 from typing import List
 
-import chemprop
 import pandas as pd
 import torch
 from sklearn.model_selection import KFold
@@ -12,9 +12,9 @@ from src.config import DATAFILE_NAME
 
 
 class HTSDataset(InMemoryDataset):
-    def __init__(self, root, sd_or_dr):
+    def __init__(self, root: Path, sd_or_dr: str):
         self.sd_or_dr = sd_or_dr
-        super().__init__(root)
+        super().__init__(str(root))
         self.data, self.slices = torch.load(self.processed_paths[0])
 
     def __get__(self, idx):
@@ -42,6 +42,7 @@ def _read_data(filepath: str) -> pd.DataFrame:
 
 
 def _process_data(df: pd.DataFrame, sd_or_dr) -> List[Data]:
+    import chemprop
     _set_atomic_num(80)
     smiles = df['neut-smiles']
     mols = [chemprop.features.featurization.MolGraph(s) for s in smiles]
@@ -64,10 +65,10 @@ def _get_connectivity(mol):
 
 def _set_atomic_num(num):
     """Set the number of features used when one-hot encoding atomic numbers"""
-    params = chemprop.features.featurization.PARAMS
-    params.MAX_ATOMIC_NUM = num
-    params.ATOM_FEATURES['atomic_num'] = list(range(num))
-    params.ATOM_FDIM = sum(len(choices) + 1 for choices in params.ATOM_FEATURES.values()) + 2
+    from chemprop.features.featurization import PARAMS
+    PARAMS.MAX_ATOMIC_NUM = num
+    PARAMS.ATOM_FEATURES['atomic_num'] = list(range(num))
+    PARAMS.ATOM_FDIM = sum(len(choices) + 1 for choices in PARAMS.ATOM_FEATURES.values()) + 2
 
 
 def split_dataset(dataset, ratio):
