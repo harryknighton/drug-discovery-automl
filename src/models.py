@@ -15,7 +15,7 @@ from torch_geometric.nn import (
 @dataclass
 class HyperParameters:
     random_seed: int
-    use_sd_readouts: bool
+    use_sd_readouts: bool  # TODO: Switch to dr_or_sd
     k_folds: int
     test_split: float
     train_val_split: float
@@ -27,11 +27,18 @@ class HyperParameters:
 
 
 class LayerType(Enum):
+    pass
+
+
+class RegressionLayerType(LayerType):
+    Linear = Linear
+
+
+class GNNLayerType(LayerType):
     GCN = GCNConv
     GIN = GINConv
     GAT = GATConv
     GATv2 = GATv2Conv
-    Linear = Linear
 
 
 class ActivationFunction(Enum):
@@ -64,11 +71,13 @@ class ModelArchitecture:
             f"Layers: [{', '.join(layer_names)}], "
             f"Features: {self.features}, "
             f"Activation Functions: [{', '.join(activation_names)}]"
+            f"Batch Normalise: {self.batch_normalise}"
         )
 
 
 @dataclass
 class GNNArchitecture(ModelArchitecture):
+    layer_types: List[GNNLayerType]
     pool_func: PoolingFunction
     regression_layer: ModelArchitecture
 
@@ -120,11 +129,11 @@ def construct_mlp(arch: ModelArchitecture) -> Sequential:
 
 
 def _construct_layer(layer_type, num_in, num_out):
-    match layer_type:
-        case LayerType.GIN:
-            # TODO: Add customisable layer architectures
-            num_hidden = int(math.sqrt(num_in + num_out))
-            mlp = Sequential(Linear(num_in, num_hidden), ReLU(), Linear(16, num_hidden))
-            args = (mlp,)
-        case _: args = (num_in, num_out)
+    if layer_type == GNNLayerType.GIN:
+        # TODO: Add customisable layer architectures
+        num_hidden = int(math.sqrt(num_in + num_out))
+        mlp = Sequential(Linear(num_in, num_hidden), ReLU(), Linear(16, num_hidden))
+        args = (mlp,)
+    else:
+        args = (num_in, num_out)
     return layer_type.value(*args)
