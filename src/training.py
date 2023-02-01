@@ -11,7 +11,7 @@ from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
 from src.config import DATA_DIR, NUM_WORKERS, DEFAULT_METRICS, LOG_DIR
-from src.data import split_dataset, k_folds, HTSDataset
+from src.data import split_dataset, partition_dataset, HTSDataset
 from src.models import construct_gnn, construct_mlp, HyperParameters, ModelArchitecture, GNNArchitecture
 from src.reporting import generate_experiment_dir, generate_run_name, save_run, save_experiment_results
 
@@ -76,39 +76,19 @@ def run_experiment(experiment_name: str, dataset_name: str, architectures: List[
         for seed in random_seeds:
             tl.seed_everything(seed, workers=True)
             params.random_seed = seed
-            if params.k_folds == 1:
-                run_result = perform_run(dataset, architecture, params, experiment_dir)
-            elif params.k_folds > 1:
-                run_result = perform_k_fold_run(dataset, architecture, params, experiment_dir)
-            else:
-                raise ValueError(f"k_folds={params.k_folds} must be positive")
+            run_result = perform_run(dataset, architecture, params, experiment_dir)
             architecture_results[seed] = run_result
         results[str(architecture)] = architecture_results
     save_experiment_results(results, experiment_dir)
 
 
 def perform_run(dataset: HTSDataset, architecture: GNNArchitecture, params: HyperParameters, experiment_dir):
-    """Perform a single run over the dataset"""
-    run_dir = experiment_dir / generate_run_name()
-    test_dataset, training_dataset = split_dataset(dataset, params.test_split)
-    train_dataset, val_dataset = split_dataset(dataset, params.train_val_split)
-    datamodule = LightningDataset(
-        train_dataset, val_dataset, test_dataset,
-        batch_size=params.batch_size, num_workers=NUM_WORKERS
-    )
-    result = train_model(architecture, params, datamodule, run_dir)
-    result = {key: {'mean': float(value)} for key, value in result.items()}  # Conform to write_experiment_results()
-    save_run(result, architecture, params, run_dir)
-    return result
-
-
-def perform_k_fold_run(dataset: HTSDataset, architecture: GNNArchitecture, params: HyperParameters, experiment_dir):
     """Perform multiple runs using k-fold cross validation and return the average results"""
     run_dir = experiment_dir / generate_run_name()
-    training_dataset, test_dataset = split_dataset(dataset, params.test_split)
+    test_dataset, training_dataset = split_dataset(dataset, params.test_split)
 
     fold_results = []
-    for train_fold, val_fold in k_folds(training_dataset, params.k_folds, params.random_seed):
+    for train_fold, val_fold in partition_dataset(training_dataset, params):
         datamodule = LightningDataset(train_fold, val_fold, test_dataset, batch_size=params.batch_size, num_workers=NUM_WORKERS)
         result = train_model(architecture, params, datamodule, run_dir)
         fold_results.append(result)
@@ -158,6 +138,7 @@ def train_model(architecture: GNNArchitecture, params: HyperParameters, datamodu
 
 def _calculate_k_fold_result(fold_results):
     """Calculate the mean and variance of the results of the k runs"""
+    assert fold_results is not None
     stacked_metrics = {name: np.array([float(fold[name]) for fold in fold_results]) for name in fold_results[0]}
     means = {name: float(np.mean(metrics)) for name, metrics in stacked_metrics.items()}
     variances = {name: float(np.var(metrics)) for name, metrics in stacked_metrics.items()}

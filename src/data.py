@@ -9,6 +9,7 @@ from torch import Tensor
 from torch_geometric.data import Data, InMemoryDataset
 
 from src.config import DATAFILE_NAME
+from src.models import HyperParameters
 
 
 class HTSDataset(InMemoryDataset):
@@ -80,9 +81,12 @@ def split_dataset(dataset, ratio):
     return training_dataset, validation_dataset
 
 
-def k_folds(dataset, k, seed):
-    kfold = KFold(n_splits=k, shuffle=True, random_state=seed)
-    for train_index, val_index in kfold.split(dataset):
-        train_dataset = dataset.index_select(train_index.tolist())
-        val_dataset = dataset.index_select(val_index.tolist())
-        yield train_dataset, val_dataset
+def partition_dataset(dataset, params: HyperParameters):
+    if params.k_folds == 1:
+        yield split_dataset(dataset, params.train_val_split)
+    else:
+        kfold = KFold(n_splits=params.k_folds, shuffle=True, random_state=params.random_seed)
+        for train_index, val_index in kfold.split(dataset):
+            train_dataset = dataset.index_select(train_index.tolist())
+            val_dataset = dataset.index_select(val_index.tolist())
+            yield train_dataset, val_dataset
