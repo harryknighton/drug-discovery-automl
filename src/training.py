@@ -10,9 +10,9 @@ from torch_geometric.data import LightningDataset
 from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
-from src.config import DATA_DIR, NUM_WORKERS, DEFAULT_METRICS, LOG_DIR
-from src.data import split_dataset, partition_dataset, HTSDataset
-from src.models import construct_gnn, construct_mlp, HyperParameters, ModelArchitecture, GNNArchitecture
+from src.config import NUM_WORKERS, DEFAULT_METRICS, LOG_DIR, USE_MF_PCBA_SPLITS
+from src.data import partition_dataset, HTSDataset
+from src.models import construct_gnn, construct_mlp, HyperParameters, GNNArchitecture
 from src.reporting import generate_experiment_dir, generate_run_name, save_run, save_experiment_results
 
 
@@ -67,9 +67,7 @@ class LitGNN(tl.LightningModule):
 def run_experiment(experiment_name: str, dataset_name: str, architectures: List[GNNArchitecture], params: HyperParameters, random_seeds: List[int]):
     """Perform a series of runs of different architectures and save the results"""
     experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, params.use_sd_readouts, experiment_name)
-    dataset_dir = DATA_DIR / dataset_name
-    dataset = HTSDataset(dataset_dir, 'DR')  # TODO: Add SD/DR dataset
-
+    dataset = HTSDataset(dataset_name, 'DR')  # TODO: Add SD/DR dataset
     logging.info("Running experiment at " + str(experiment_dir))
     results = {}
     for architecture in architectures:
@@ -87,7 +85,7 @@ def perform_run(dataset: HTSDataset, architecture: GNNArchitecture, params: Hype
     """Perform multiple runs using k-fold cross validation and return the average results"""
     run_dir = experiment_dir / generate_run_name()
     trial_results = []
-    for train_dataset, val_dataset, test_dataset in partition_dataset(dataset, params):
+    for train_dataset, val_dataset, test_dataset in partition_dataset(dataset, params, USE_MF_PCBA_SPLITS):
         datamodule = LightningDataset(
             train_dataset, val_dataset, test_dataset,
             batch_size=params.batch_size, num_workers=NUM_WORKERS

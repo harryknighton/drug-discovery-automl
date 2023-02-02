@@ -9,15 +9,16 @@ from sklearn.model_selection import KFold
 from torch import Tensor
 from torch_geometric.data import Data, InMemoryDataset
 
-from src.config import DATAFILE_NAME, RANDOM_SEEDS
+from src.config import DATAFILE_NAME, RANDOM_SEEDS, DATA_DIR
 from src.models import HyperParameters
 
 
 class HTSDataset(InMemoryDataset):
-    def __init__(self, root: Path, sd_or_dr: str):
-        self.name = 'AID1445' # TODO: add dataset names
+    def __init__(self, name: str, sd_or_dr: str):
+        root = str(DATA_DIR / name)
+        super().__init__(root)
+        self.name = name
         self.sd_or_dr = sd_or_dr
-        super().__init__(str(root))
         self.data, self.slices = torch.load(self.processed_paths[0])
 
     def __get__(self, idx):
@@ -32,7 +33,7 @@ class HTSDataset(InMemoryDataset):
         return [f'processed_{self.sd_or_dr.lower()}_data.pt']
 
     def process(self):
-        df = _read_data(self.root / self.raw_file_names[0])
+        df = _read_data(Path(self.root) / self.raw_file_names[0])
         if self.sd_or_dr == 'DR':
             df = df[df['DR'].notnull()]
         data_list = _process_data(df, self.sd_or_dr)
@@ -40,7 +41,7 @@ class HTSDataset(InMemoryDataset):
         torch.save((data, slices), self.processed_paths[0])
 
 
-def _read_data(filepath: str) -> pd.DataFrame:
+def _read_data(filepath: Path) -> pd.DataFrame:
     return pd.read_csv(filepath)
 
 
