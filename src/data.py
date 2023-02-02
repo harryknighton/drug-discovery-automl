@@ -15,10 +15,10 @@ from src.models import HyperParameters
 
 class HTSDataset(InMemoryDataset):
     def __init__(self, name: str, sd_or_dr: str):
-        root = str(DATA_DIR / name)
-        super().__init__(root)
         self.name = name
         self.sd_or_dr = sd_or_dr
+        root = str(DATA_DIR / name)
+        super().__init__(root)
         self.data, self.slices = torch.load(self.processed_paths[0])
 
     def __get__(self, idx):
@@ -105,7 +105,7 @@ def mf_pcba_split(dataset: HTSDataset, seed: int):
 
 def split_dataset(dataset: HTSDataset, ratio: float):
     split = int(ratio * len(dataset))
-    indices = np.random.permutation(len(dataset))
+    indices = np.random.permutation(np.arange(len(dataset), dtype=np.int64))
     training_dataset = dataset.index_select(indices[:split])
     validation_dataset = dataset.index_select(indices[split:])
     return training_dataset, validation_dataset
