@@ -67,7 +67,7 @@ class LitGNN(tl.LightningModule):
 def run_experiment(experiment_name: str, dataset_name: str, architectures: List[GNNArchitecture], params: HyperParameters, random_seeds: List[int]):
     """Perform a series of runs of different architectures and save the results"""
     experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, params.use_sd_readouts, experiment_name)
-    dataset = HTSDataset(dataset_name, 'DR')  # TODO: Add SD/DR dataset
+    dataset = HTSDataset(dataset_name, 'DR')  # TODO: Add SD readouts
     logging.info("Running experiment at " + str(experiment_dir))
     results = {}
     for architecture in architectures:

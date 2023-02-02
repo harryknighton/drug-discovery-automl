@@ -15,7 +15,7 @@ from torch_geometric.nn import (
 @dataclass
 class HyperParameters:
     random_seed: int
-    use_sd_readouts: bool  # TODO: Switch to dr_or_sd
+    use_sd_readouts: bool
     k_folds: int
     test_split: float
     train_val_split: float
