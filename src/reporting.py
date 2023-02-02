@@ -1,11 +1,12 @@
 import json
 import pickle
 from datetime import datetime
+from typing import Any
 
 import pandas as pd
 import torch
 from torch import Tensor
-from torchmetrics import PearsonCorrCoef, MeanSquaredError
+from torchmetrics import PearsonCorrCoef, MeanSquaredError, Metric
 
 
 class PearsonCorrCoefSquared(PearsonCorrCoef):
@@ -18,6 +19,25 @@ class PearsonCorrCoefSquared(PearsonCorrCoef):
 class RootMeanSquaredError(MeanSquaredError):
     def __init__(self):
         super(RootMeanSquaredError, self).__init__(squared=False)
+
+
+class MaxError(Metric):
+    """Computes the maximum error of any sample"""
+    is_differentiable: bool = False
+    higher_is_better: bool = False
+    full_state_update: bool = False
+    max_error: Tensor = -1.0
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.add_state("max_error", default=torch.tensor(-1.0), dist_reduce_fx="max")
+
+    def update(self, preds: Tensor, target: Tensor) -> None:  # type: ignore
+        batch_max_error = (preds - target).abs().max()
+        self.max_error = max(self.max_error, batch_max_error)
+
+    def compute(self) -> Tensor:
+        return self.max_error
 
 
 def generate_experiment_dir(dataset_name, using_sd_readouts, name):

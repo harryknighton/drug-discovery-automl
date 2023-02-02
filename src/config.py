@@ -2,7 +2,7 @@ from pathlib import Path
 
 from torchmetrics import MetricCollection, R2Score, MeanAbsoluteError, MeanSquaredError, PearsonCorrCoef
 
-from src.reporting import PearsonCorrCoefSquared, RootMeanSquaredError
+from src.reporting import PearsonCorrCoefSquared, RootMeanSquaredError, MaxError
 from src.models import HyperParameters
 
 DATAFILE_NAME = 'SD.csv'
@@ -31,9 +31,9 @@ DEFAULT_PARAMETERS = HyperParameters(
 DEFAULT_METRICS = MetricCollection([
     MeanAbsoluteError(),
     RootMeanSquaredError(),
-    PearsonCorrCoef(),
+    MaxError(),
     PearsonCorrCoefSquared(),
-    R2Score()
+    R2Score(),
 ])
 
 # Seeds used in https://chemrxiv.org/engage/chemrxiv/article-details/636fa49b80c9bfb4dc944c1c
