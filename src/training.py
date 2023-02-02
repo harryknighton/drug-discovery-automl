@@ -86,15 +86,16 @@ def run_experiment(experiment_name: str, dataset_name: str, architectures: List[
 def perform_run(dataset: HTSDataset, architecture: GNNArchitecture, params: HyperParameters, experiment_dir):
     """Perform multiple runs using k-fold cross validation and return the average results"""
     run_dir = experiment_dir / generate_run_name()
-    test_dataset, training_dataset = split_dataset(dataset, params.test_split)
-
-    fold_results = []
-    for train_fold, val_fold in partition_dataset(training_dataset, params):
-        datamodule = LightningDataset(train_fold, val_fold, test_dataset, batch_size=params.batch_size, num_workers=NUM_WORKERS)
+    trial_results = []
+    for train_dataset, val_dataset, test_dataset in partition_dataset(dataset, params):
+        datamodule = LightningDataset(
+            train_dataset, val_dataset, test_dataset,
+            batch_size=params.batch_size, num_workers=NUM_WORKERS
+        )
         result = train_model(architecture, params, datamodule, run_dir)
-        fold_results.append(result)
+        trial_results.append(result)
 
-    result = _calculate_k_fold_result(fold_results)
+    result = _calculate_run_result(trial_results)
     save_run(result, architecture, params, run_dir)
     return result
 
@@ -137,10 +138,10 @@ def train_model(architecture: GNNArchitecture, params: HyperParameters, datamodu
     return result
 
 
-def _calculate_k_fold_result(fold_results):
-    """Calculate the mean and variance of the results of the k runs"""
-    assert fold_results is not None
-    stacked_metrics = {name: np.array([float(fold[name]) for fold in fold_results]) for name in fold_results[0]}
+def _calculate_run_result(trial_results):
+    """Calculate the mean and variance of the results of all trials"""
+    assert trial_results is not None
+    stacked_metrics = {name: np.array([float(result[name]) for result in trial_results]) for name in trial_results[0]}
     means = {name: float(np.mean(metrics)) for name, metrics in stacked_metrics.items()}
     variances = {name: float(np.var(metrics)) for name, metrics in stacked_metrics.items()}
     metrics = {name: {'mean': means[name], 'variance': variances[name]} for name in stacked_metrics}

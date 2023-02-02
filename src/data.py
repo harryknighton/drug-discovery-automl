@@ -2,18 +2,20 @@ import random
 from pathlib import Path
 from typing import List
 
+import numpy as np
 import pandas as pd
 import torch
 from sklearn.model_selection import KFold
 from torch import Tensor
 from torch_geometric.data import Data, InMemoryDataset
 
-from src.config import DATAFILE_NAME
+from src.config import DATAFILE_NAME, RANDOM_SEEDS
 from src.models import HyperParameters
 
 
 class HTSDataset(InMemoryDataset):
     def __init__(self, root: Path, sd_or_dr: str):
+        self.name = 'AID1445' # TODO: add dataset names
         self.sd_or_dr = sd_or_dr
         super().__init__(str(root))
         self.data, self.slices = torch.load(self.processed_paths[0])
@@ -72,21 +74,45 @@ def _set_atomic_num(num):
     PARAMS.ATOM_FDIM = sum(len(choices) + 1 for choices in PARAMS.ATOM_FEATURES.values()) + 2
 
 
-def split_dataset(dataset, ratio):
+def partition_dataset(dataset, params: HyperParameters, use_mf_pcba_scheme: bool = False):
+    if use_mf_pcba_scheme:
+        for seed in RANDOM_SEEDS[dataset.name]:
+            yield mf_pcba_split(dataset, seed)
+    else:
+        np.random.seed(params.random_seed)
+        test_dataset, training_dataset = split_dataset(dataset, params.test_split)
+        if params.k_folds == 1:
+            yield *split_dataset(dataset, params.train_val_split), test_dataset
+        else:
+            for train_dataset, val_dataset in k_folds(dataset, params.k_folds):
+                yield train_dataset, val_dataset, test_dataset
+
+
+def mf_pcba_split(dataset: HTSDataset, seed: int):
+    # Splits used in https://github.com/davidbuterez/mf-pcba/blob/main/split_DR_with_random_seeds.ipynb
+    # Adapted from https://stackoverflow.com/questions/38250710/how-to-split-data-into-3-sets-train-validation-and-test
+    np.random.seed(seed)
+    size = len(dataset)
+    perm = np.random.permutation(size)
+    train_end = int(0.8 * size)
+    validate_end = int(0.1 * size) + train_end
+    train = dataset.index_select(perm[:train_end])
+    validate = dataset.index_select(perm[train_end:validate_end])
+    test = dataset.index_select(perm[validate_end:])
+    return train, validate, test
+
+
+def split_dataset(dataset: HTSDataset, ratio: float):
     split = int(ratio * len(dataset))
-    indices = list(range(len(dataset)))
-    random.shuffle(indices)
+    indices = np.random.permutation(len(dataset))
     training_dataset = dataset.index_select(indices[:split])
     validation_dataset = dataset.index_select(indices[split:])
     return training_dataset, validation_dataset
 
 
-def partition_dataset(dataset, params: HyperParameters):
-    if params.k_folds == 1:
-        yield split_dataset(dataset, params.train_val_split)
-    else:
-        kfold = KFold(n_splits=params.k_folds, shuffle=True, random_state=params.random_seed)
-        for train_index, val_index in kfold.split(dataset):
-            train_dataset = dataset.index_select(train_index.tolist())
-            val_dataset = dataset.index_select(val_index.tolist())
-            yield train_dataset, val_dataset
+def k_folds(dataset: HTSDataset, k: int):
+    kfold = KFold(n_splits=k)
+    for train_index, val_index in kfold.split(dataset):
+        train_dataset = dataset.index_select(train_index.tolist())
+        val_dataset = dataset.index_select(val_index.tolist())
+        yield train_dataset, val_dataset
