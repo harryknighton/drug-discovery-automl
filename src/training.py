@@ -58,9 +58,8 @@ class LitGNN(tl.LightningModule):
         return optimiser
 
     def _report_loss(self, pred, y, prefix):
-        # TODO: Remove slash from name
         loss = self.loss(pred, y)
-        self.log('loss/' + prefix, loss, batch_size=y.shape[0])
+        self.log('loss-' + prefix, loss, batch_size=y.shape[0])
         return loss
 
 
@@ -102,14 +101,14 @@ def train_model(architecture: GNNArchitecture, params: HyperParameters, datamodu
     model = LitGNN(architecture, params, DEFAULT_METRICS)
 
     checkpoint_callback = ModelCheckpoint(
-        monitor='loss/val',
+        monitor='loss-val',
         mode='min',
         filename='{epoch:02d}-{loss/val:.2f}',
         save_top_k=2,
     )
 
     early_stop_callback = EarlyStopping(
-        monitor='loss/val',
+        monitor='loss-val',
         mode='min',
         patience=params.early_stop_patience,
         min_delta=params.early_stop_min_delta
