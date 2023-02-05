@@ -8,6 +8,8 @@ import torch
 from torch import Tensor
 from torchmetrics import PearsonCorrCoef, MeanSquaredError, Metric
 
+from src.data import DatasetUsage
+
 
 class PearsonCorrCoefSquared(PearsonCorrCoef):
     """Provides an alternative implementation of R^2"""
@@ -40,9 +42,8 @@ class MaxError(Metric):
         return self.max_error
 
 
-def generate_experiment_dir(dataset_name, using_sd_readouts, name):
-    data_used = 'SD_DR' if using_sd_readouts else 'DR'
-    return f"{dataset_name}/{data_used}/{name}"
+def generate_experiment_dir(dataset_name, dataset_usage: DatasetUsage, name):
+    return f"{dataset_name}/{dataset_usage.name}/{name}"
 
 
 def generate_run_name():

@@ -11,7 +11,7 @@ from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
 from src.config import NUM_WORKERS, DEFAULT_METRICS, LOG_DIR, USE_MF_PCBA_SPLITS
-from src.data import partition_dataset, HTSDataset
+from src.data import partition_dataset, HTSDataset, DatasetUsage
 from src.models import construct_gnn, construct_mlp, HyperParameters, GNNArchitecture
 from src.reporting import generate_experiment_dir, generate_run_name, save_run, save_experiment_results
 
@@ -63,11 +63,11 @@ class LitGNN(tl.LightningModule):
         return loss
 
 
-def run_experiment(experiment_name: str, dataset_name: str, architectures: List[GNNArchitecture], params: HyperParameters, random_seeds: List[int]):
+def run_experiment(experiment_name: str, dataset_name: str, dataset_usage: DatasetUsage, architectures: List[GNNArchitecture], params: HyperParameters, random_seeds: List[int]):
     """Perform a series of runs of different architectures and save the results"""
-    experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, params.use_sd_readouts, experiment_name)
-    dataset = HTSDataset(dataset_name, 'DR')  # TODO: Add SD readouts
-    logging.info("Running experiment at " + str(experiment_dir))
+    experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, dataset_usage, experiment_name)
+    dataset = HTSDataset(dataset_name, dataset_usage)
+    logging.info(f"Running experiment {experiment_name} at {experiment_dir}")
     results = {}
     for architecture in architectures:
         architecture_results = {}

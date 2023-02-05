@@ -1,4 +1,6 @@
+import logging
 import random
+from enum import auto, Enum
 from pathlib import Path
 from typing import List
 
@@ -13,10 +15,18 @@ from src.config import DATAFILE_NAME, RANDOM_SEEDS, DATA_DIR
 from src.models import HyperParameters
 
 
+class DatasetUsage(Enum):
+    SDOnly = auto()
+    DROnly = auto()
+    DRWithSDReadouts = auto()
+    DRWithSDEmbeddings = auto()
+
+
 class HTSDataset(InMemoryDataset):
-    def __init__(self, name: str, sd_or_dr: str):
+    def __init__(self, name: str, dataset_usage: DatasetUsage):
         self.name = name
-        self.sd_or_dr = sd_or_dr
+        self.dataset_usage = dataset_usage
+        self.sd_or_dr = 'SD' if self.dataset_usage == DatasetUsage.SDOnly else 'DR'
         root = str(DATA_DIR / name)
         super().__init__(root)
         self.data, self.slices = torch.load(self.processed_paths[0])
@@ -78,6 +88,7 @@ def _set_atomic_num(num):
 def partition_dataset(dataset, params: HyperParameters, use_mf_pcba_scheme: bool = False):
     if use_mf_pcba_scheme:
         for seed in RANDOM_SEEDS[dataset.name]:
+            logging.info("Using MF_PCBA split with seed " + str(seed))
             yield mf_pcba_split(dataset, seed)
     else:
         np.random.seed(params.random_seed)
