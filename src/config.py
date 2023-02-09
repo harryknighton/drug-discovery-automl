@@ -3,7 +3,6 @@ from pathlib import Path
 from torchmetrics import MetricCollection, R2Score, MeanAbsoluteError
 
 from src.metrics import PearsonCorrCoefSquared, RootMeanSquaredError, MaxError
-from src.models import HyperParameters, ModelArchitecture, RegressionLayerType, ActivationFunction
 
 DATAFILE_NAME = 'SD.csv'
 
@@ -14,19 +13,6 @@ LOG_DIR = ROOT_DIR / 'logs'
 NUM_WORKERS = 0
 
 DEFAULT_N_FEATURES = 113
-
-DEFAULT_PARAMETERS = HyperParameters(
-    random_seed=0,
-    use_sd_readouts=False,
-    k_folds=2,
-    test_split=0.2,
-    train_val_split=0.75,
-    batch_size=32,
-    early_stop_patience=30,
-    early_stop_min_delta=0.01,
-    lr=0.0001,
-    max_epochs=5
-)
 
 DEFAULT_METRICS = MetricCollection([
     MeanAbsoluteError(),
@@ -44,4 +30,4 @@ RANDOM_SEEDS = {
     "AID624330": [693665, 109746, 780835, 662995, 865845]
 }
 
-USE_MF_PCBA_SPLITS = True
+USE_MF_PCBA_SPLITS = False
