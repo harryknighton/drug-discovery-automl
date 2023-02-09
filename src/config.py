@@ -3,7 +3,7 @@ from pathlib import Path
 from torchmetrics import MetricCollection, R2Score, MeanAbsoluteError
 
 from src.metrics import PearsonCorrCoefSquared, RootMeanSquaredError, MaxError
-from src.models import HyperParameters
+from src.models import HyperParameters, ModelArchitecture, RegressionLayerType, ActivationFunction
 
 DATAFILE_NAME = 'SD.csv'
 
@@ -16,16 +16,16 @@ NUM_WORKERS = 0
 DEFAULT_N_FEATURES = 113
 
 DEFAULT_PARAMETERS = HyperParameters(
-    random_seed=1424,
+    random_seed=0,
     use_sd_readouts=False,
-    k_folds=6,
+    k_folds=2,
     test_split=0.2,
     train_val_split=0.75,
     batch_size=32,
-    early_stop_patience=10,
+    early_stop_patience=30,
     early_stop_min_delta=0.01,
     lr=0.0001,
-    max_epochs=150
+    max_epochs=5
 )
 
 DEFAULT_METRICS = MetricCollection([

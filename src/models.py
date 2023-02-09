@@ -11,6 +11,8 @@ from torch_geometric.nn import (
     Sequential as SequentialGNN, BatchNorm
 )
 
+from src.config import DEFAULT_N_FEATURES
+
 
 @dataclass
 class HyperParameters:
@@ -89,6 +91,34 @@ class GNNArchitecture(ModelArchitecture):
             f"Regression Layer: {str(self.regression_layer)}"
             ")"
         )
+
+
+def build_uniform_gnn_architecture(
+    layer_type: GNNLayerType,
+    num_layers: int,
+    layer_width: int,
+    pool_func: PoolingFunction,
+    batch_normalise: bool,
+    activation: ActivationFunction,
+    regression_layers: int,
+) -> GNNArchitecture:
+    return GNNArchitecture(
+        layer_types=[layer_type] * num_layers,
+        features=[DEFAULT_N_FEATURES] + [layer_width] * num_layers,
+        activation_funcs=[activation] * num_layers,
+        pool_func=pool_func,
+        batch_normalise=[batch_normalise] * num_layers,
+        regression_layer=build_regression_layer_architecture(layer_width, regression_layers)
+    )
+
+
+def build_regression_layer_architecture(input_features: int, layers: int) -> ModelArchitecture:
+    return ModelArchitecture(
+        layer_types=[RegressionLayerType.Linear] * layers,
+        features=[input_features] * layers + [1],
+        activation_funcs=[ActivationFunction.ReLU] * (layers - 1) + [None],
+        batch_normalise=[False] * layers,
+    )
 
 
 def construct_gnn(arch: GNNArchitecture) -> SequentialGNN:
