@@ -162,7 +162,7 @@ def _construct_layer(layer_type, num_in, num_out):
     if layer_type == GNNLayerType.GIN:
         # TODO: Add customisable layer architectures
         num_hidden = int(math.sqrt(num_in + num_out))
-        mlp = Sequential(Linear(num_in, num_hidden), ReLU(), Linear(16, num_hidden))
+        mlp = Sequential(Linear(num_in, num_hidden), ReLU(), Linear(num_hidden, num_out))
         args = (mlp,)
     else:
         args = (num_in, num_out)
