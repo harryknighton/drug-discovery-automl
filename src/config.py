@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from torchmetrics import MetricCollection, R2Score, MeanAbsoluteError, MeanSquaredError, PearsonCorrCoef
+from torchmetrics import MetricCollection, R2Score, MeanAbsoluteError
 
-from src.reporting import PearsonCorrCoefSquared, RootMeanSquaredError, MaxError
+from src.metrics import PearsonCorrCoefSquared, RootMeanSquaredError, MaxError
 from src.models import HyperParameters
 
 DATAFILE_NAME = 'SD.csv'
@@ -44,4 +44,4 @@ RANDOM_SEEDS = {
     "AID624330": [693665, 109746, 780835, 662995, 865845]
 }
 
-USE_MF_PCBA_SPLITS = False
+USE_MF_PCBA_SPLITS = True
