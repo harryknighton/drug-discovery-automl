@@ -1,3 +1,4 @@
+from src.config import DEFAULT_PARAMETERS
 from src.data import DatasetUsage
 from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction
 from src.training import run_experiment
@@ -17,4 +18,4 @@ if __name__ == '__main__':
             )
         )
 
-    run_experiment('mfpcba', 'AID1445', DatasetUsage.DROnly, architectures, DEFAULT_HYPER_PARAMETERS, [1424])
+    run_experiment('mfpcba', 'AID1445', DatasetUsage.DROnly, architectures, DEFAULT_PARAMETERS, [1424])
