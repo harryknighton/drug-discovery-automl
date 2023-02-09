@@ -16,8 +16,6 @@ def generate_run_name():
 
 
 def save_experiment_results(results, experiment_dir):
-    # TODO: Make this not horrible
-    print(results)
     stacked_seeds = [
         {
             ('archs',): [arch] * len(seeds),
@@ -35,6 +33,7 @@ def save_experiment_results(results, experiment_dir):
         for key in stacked_seeds[0].keys()
     }
     df = pd.DataFrame(reformed_data)
+    print(df.to_string())
     df.to_csv(experiment_dir / 'results.csv', sep=';')  # Seperator other than comma due to architecture representation
 
 
