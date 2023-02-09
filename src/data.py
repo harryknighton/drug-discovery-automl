@@ -1,5 +1,4 @@
 import logging
-import random
 from enum import auto, Enum
 from pathlib import Path
 from typing import List
@@ -105,7 +104,7 @@ def mf_pcba_split(dataset: HTSDataset, seed: int):
     # Adapted from https://stackoverflow.com/questions/38250710/how-to-split-data-into-3-sets-train-validation-and-test
     np.random.seed(seed)
     size = len(dataset)
-    perm = np.random.permutation(size)
+    perm = np.random.permutation(np.arange(size, dtype=np.int64))
     train_end = int(0.8 * size)
     validate_end = int(0.1 * size) + train_end
     train = dataset.index_select(perm[:train_end])
