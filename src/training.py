@@ -54,7 +54,7 @@ class LitGNN(tl.LightningModule):
         self.test_metrics.reset()
 
     def configure_optimizers(self):
-        optimiser = AdamW(self.gnn.parameters(), lr=self.params.lr)
+        optimiser = AdamW(self.parameters(), lr=self.params.lr)
         return optimiser
 
     def _report_loss(self, pred, y, prefix):
@@ -123,7 +123,7 @@ def train_model(architecture: GNNArchitecture, params: HyperParameters, datamodu
         max_epochs=params.max_epochs,
         callbacks=[checkpoint_callback, early_stop_callback],
         enable_progress_bar=False,
-        enable_model_summary=False,
+        enable_model_summary=True,
     )
 
     trainer.fit(model, datamodule=datamodule)
