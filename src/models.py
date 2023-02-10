@@ -76,6 +76,17 @@ class ModelArchitecture:
             f"Batch Normalise: {self.batch_normalise}"
         )
 
+    def __post_init__(self):
+        self._validate()
+
+    def _validate(self):
+        num_layers = len(self.layer_types)
+        assert num_layers > 0
+        assert len(self.features) == num_layers + 1
+        assert len(self.activation_funcs) == num_layers
+        assert len(self.batch_normalise) == num_layers
+
+
 
 @dataclass
 class GNNArchitecture(ModelArchitecture):
