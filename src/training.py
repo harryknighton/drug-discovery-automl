@@ -140,6 +140,6 @@ def _calculate_run_result(trial_results):
     assert trial_results is not None
     stacked_metrics = {name: np.array([float(result[name]) for result in trial_results]) for name in trial_results[0]}
     means = {name: float(np.mean(metrics)) for name, metrics in stacked_metrics.items()}
-    variances = {name: float(np.var(metrics)) for name, metrics in stacked_metrics.items()}
+    variances = {name: float(np.var(metrics, ddof=1)) for name, metrics in stacked_metrics.items()}
     metrics = {name: {'mean': means[name], 'variance': variances[name]} for name in stacked_metrics}
     return metrics
