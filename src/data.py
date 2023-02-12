@@ -1,24 +1,16 @@
 import logging
-from enum import auto, Enum
 from pathlib import Path
 from typing import List
 
 import numpy as np
 import pandas as pd
 import torch
-from sklearn.model_selection import KFold
+from sklearn import model_selection
 from torch import Tensor
 from torch_geometric.data import Data, InMemoryDataset
 
 from src.config import DATAFILE_NAME, RANDOM_SEEDS, DATA_DIR
-from src.models import HyperParameters
-
-
-class DatasetUsage(Enum):
-    SDOnly = auto()
-    DROnly = auto()
-    DRWithSDReadouts = auto()
-    DRWithSDEmbeddings = auto()
+from src.parameters import DatasetUsage, HyperParameters, MFPCBA, BasicSplit, KFolds
 
 
 class HTSDataset(InMemoryDataset):
@@ -84,19 +76,22 @@ def _set_atomic_num(num):
     PARAMS.ATOM_FDIM = sum(len(choices) + 1 for choices in PARAMS.ATOM_FEATURES.values()) + 2
 
 
-def partition_dataset(dataset, params: HyperParameters, use_mf_pcba_scheme: bool = False):
-    if use_mf_pcba_scheme:
+def partition_dataset(dataset, params: HyperParameters):
+    if isinstance(params.dataset_split, MFPCBA):
         for seed in RANDOM_SEEDS[dataset.name]:
             logging.info("Using MF_PCBA split with seed " + str(seed))
             yield mf_pcba_split(dataset, seed)
-    else:
+    elif isinstance(params.dataset_split, BasicSplit):
         np.random.seed(params.random_seed)
         test_dataset, training_dataset = split_dataset(dataset, params.test_split)
-        if params.k_folds == 1:
-            yield *split_dataset(dataset, params.train_val_split), test_dataset
-        else:
-            for train_dataset, val_dataset in k_folds(dataset, params.k_folds):
-                yield train_dataset, val_dataset, test_dataset
+        yield *split_dataset(dataset, params.train_val_split), test_dataset
+    elif isinstance(params.dataset_split, KFolds):
+        np.random.seed(params.random_seed)
+        test_dataset, training_dataset = split_dataset(dataset, params.test_split)
+        for train_dataset, val_dataset in k_folds(dataset, params.dataset_split.k):
+            yield train_dataset, val_dataset, test_dataset
+    else:
+        raise ValueError("Unsupported dataset splitting scheme " + str(params.dataset_split))
 
 
 def mf_pcba_split(dataset: HTSDataset, seed: int):
@@ -122,7 +117,7 @@ def split_dataset(dataset: HTSDataset, ratio: float):
 
 
 def k_folds(dataset: HTSDataset, k: int):
-    kfold = KFold(n_splits=k)
+    kfold = model_selection.KFold(n_splits=k)
     for train_index, val_index in kfold.split(dataset):
         train_dataset = dataset.index_select(train_index.tolist())
         val_dataset = dataset.index_select(val_index.tolist())

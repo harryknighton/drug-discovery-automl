@@ -10,9 +10,11 @@ from torch_geometric.data import LightningDataset
 from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
-from src.config import NUM_WORKERS, DEFAULT_METRICS, LOG_DIR, USE_MF_PCBA_SPLITS
+from src.config import LOG_DIR
 from src.data import partition_dataset, HTSDataset, DatasetUsage
-from src.models import construct_gnn, construct_mlp, HyperParameters, GNNArchitecture
+from src.metrics import DEFAULT_METRICS
+from src.models import construct_gnn, construct_mlp, GNNArchitecture
+from src.parameters import HyperParameters
 from src.reporting import generate_experiment_dir, generate_run_name, save_run, save_experiment_results
 
 
@@ -84,10 +86,10 @@ def perform_run(dataset: HTSDataset, architecture: GNNArchitecture, params: Hype
     """Perform multiple runs using k-fold cross validation and return the average results"""
     run_dir = experiment_dir / generate_run_name()
     trial_results = []
-    for train_dataset, val_dataset, test_dataset in partition_dataset(dataset, params, USE_MF_PCBA_SPLITS):
+    for train_dataset, val_dataset, test_dataset in partition_dataset(dataset, params):
         datamodule = LightningDataset(
             train_dataset, val_dataset, test_dataset,
-            batch_size=params.batch_size, num_workers=NUM_WORKERS
+            batch_size=params.batch_size, num_workers=params.num_workers
         )
         result = train_model(architecture, params, datamodule, run_dir)
         trial_results.append(result)

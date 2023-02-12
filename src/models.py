@@ -14,20 +14,6 @@ from torch_geometric.nn import (
 from src.config import DEFAULT_N_FEATURES
 
 
-@dataclass
-class HyperParameters:
-    random_seed: int
-    use_sd_readouts: bool
-    k_folds: int
-    test_split: float
-    train_val_split: float
-    batch_size: int
-    early_stop_patience: int
-    early_stop_min_delta: float
-    lr: float
-    max_epochs: int
-
-
 class LayerType(Enum):
     pass
 
@@ -111,7 +97,7 @@ def build_uniform_gnn_architecture(
     pool_func: PoolingFunction,
     batch_normalise: bool,
     activation: ActivationFunction,
-    regression_layers: int,
+    num_regression_layers: int,
 ) -> GNNArchitecture:
     return GNNArchitecture(
         layer_types=[layer_type] * num_layers,
@@ -119,7 +105,7 @@ def build_uniform_gnn_architecture(
         activation_funcs=[activation] * num_layers,
         pool_func=pool_func,
         batch_normalise=[batch_normalise] * num_layers,
-        regression_layer=build_regression_layer_architecture(layer_width, regression_layers)
+        regression_layer=build_regression_layer_architecture(layer_width, num_regression_layers)
     )
 
 
@@ -144,12 +130,12 @@ def construct_gnn(arch: GNNArchitecture) -> SequentialGNN:
         normalise = arch.batch_normalise[i]
         layer = _construct_layer(layer_type, num_in, num_out)
         layers.append((layer, "x, edge_index -> x"))
-        if i == num_layers - 1:
-            layers.append((arch.pool_func.value, "x, batch -> x"))
         if normalise:
             layers.append(BatchNorm(num_out))
         if activation is not None:
             layers.append(activation.value(inplace=True))
+        if i == num_layers - 1:
+            layers.append((arch.pool_func.value, "x, batch -> x"))
 
     return SequentialGNN(global_inputs, layers)
 

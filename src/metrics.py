@@ -2,7 +2,7 @@ from typing import Any
 
 import torch
 from torch import Tensor
-from torchmetrics import PearsonCorrCoef, MeanSquaredError, Metric
+from torchmetrics import PearsonCorrCoef, MeanSquaredError, Metric, MetricCollection, MeanAbsoluteError, R2Score
 
 
 class PearsonCorrCoefSquared(PearsonCorrCoef):
@@ -34,3 +34,12 @@ class MaxError(Metric):
 
     def compute(self) -> Tensor:
         return self.max_error
+
+
+DEFAULT_METRICS = MetricCollection([
+    MeanAbsoluteError(),
+    RootMeanSquaredError(),
+    MaxError(),
+    PearsonCorrCoefSquared(),
+    R2Score(),
+])
