@@ -21,6 +21,7 @@ def main():
     parser.add_argument('--use-mf-pcba-splits', action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('--k-folds', type=int, required=False)
     parser.add_argument('--num-workers', type=int, required=False, default=0)
+    parser.add_argument('--precision', type=str, choices=['highest', 'high', 'medium'], default='high')
 
     args = vars(parser.parse_args())
     _validate_args(args)
@@ -61,7 +62,7 @@ def main():
         )
 
     start = timeit.default_timer()
-    run_experiment(args['name'], args['dataset'], DatasetUsage.DROnly, architectures, params, [1424])
+    run_experiment(args['name'], args['dataset'], DatasetUsage.DROnly, architectures, params, [1424], args['precision'])
     end = timeit.default_timer()
     logging.info(f"Finished experiment in {end - start}s.")
 

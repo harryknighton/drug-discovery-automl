@@ -2,6 +2,7 @@ import logging
 from typing import List
 
 import numpy as np
+import torch
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from torch.nn import MSELoss
 from torch.optim import AdamW
@@ -65,8 +66,17 @@ class LitGNN(tl.LightningModule):
         return loss
 
 
-def run_experiment(experiment_name: str, dataset_name: str, dataset_usage: DatasetUsage, architectures: List[GNNArchitecture], params: HyperParameters, random_seeds: List[int]):
+def run_experiment(
+        experiment_name: str,
+        dataset_name: str,
+        dataset_usage: DatasetUsage,
+        architectures: List[GNNArchitecture],
+        params: HyperParameters,
+        random_seeds: List[int],
+        precision: str
+):
     """Perform a series of runs of different architectures and save the results"""
+    torch.set_float32_matmul_precision(precision)
     experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, dataset_usage, experiment_name)
     dataset = HTSDataset(dataset_name, dataset_usage)
     logging.info(f"Running experiment {experiment_name} at {experiment_dir}")
