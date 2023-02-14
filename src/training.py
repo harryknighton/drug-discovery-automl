@@ -1,9 +1,11 @@
 import logging
-from typing import List
+from pathlib import Path
+from typing import List, Optional
 
 import numpy as np
 import torch
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import MSELoss
 from torch.optim import AdamW
 import pytorch_lightning as tl
@@ -96,12 +98,12 @@ def perform_run(dataset: HTSDataset, architecture: GNNArchitecture, params: Hype
     """Perform multiple runs using k-fold cross validation and return the average results"""
     run_dir = experiment_dir / generate_run_name()
     trial_results = []
-    for train_dataset, val_dataset, test_dataset in partition_dataset(dataset, params):
+    for i, (train_dataset, val_dataset, test_dataset) in enumerate(partition_dataset(dataset, params)):
         datamodule = LightningDataset(
             train_dataset, val_dataset, test_dataset,
             batch_size=params.batch_size, num_workers=params.num_workers
         )
-        result = train_model(architecture, params, datamodule, run_dir)
+        result = train_model(architecture, params, datamodule, run_dir, version=i)
         trial_results.append(result)
 
     result = _calculate_run_result(trial_results)
@@ -109,14 +111,20 @@ def perform_run(dataset: HTSDataset, architecture: GNNArchitecture, params: Hype
     return result
 
 
-def train_model(architecture: GNNArchitecture, params: HyperParameters, datamodule: LightningDataModule, run_dir):
+def train_model(
+    architecture: GNNArchitecture,
+    params: HyperParameters,
+    datamodule: LightningDataModule,
+    run_dir: Path,
+    version: Optional[int] = None
+):
     model = LitGNN(architecture, params, DEFAULT_METRICS)
 
     checkpoint_callback = ModelCheckpoint(
+        filename='{epoch:02d}-{loss_val:.2f}',
         monitor='loss_val',
         mode='min',
-        filename='{epoch:02d}-{loss_val:.2f}',
-        save_top_k=2,
+        save_top_k=1,
     )
 
     early_stop_callback = EarlyStopping(
@@ -124,6 +132,12 @@ def train_model(architecture: GNNArchitecture, params: HyperParameters, datamodu
         mode='min',
         patience=params.early_stop_patience,
         min_delta=params.early_stop_min_delta
+    )
+
+    logger = TensorBoardLogger(
+        save_dir=run_dir,
+        name='',
+        version=version
     )
 
     trainer = tl.Trainer(
@@ -134,6 +148,7 @@ def train_model(architecture: GNNArchitecture, params: HyperParameters, datamodu
         log_every_n_steps=1,
         max_epochs=params.max_epochs,
         callbacks=[checkpoint_callback, early_stop_callback],
+        logger=logger,
         enable_progress_bar=False,
         enable_model_summary=True,
     )
