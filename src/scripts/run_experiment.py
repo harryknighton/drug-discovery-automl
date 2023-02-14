@@ -1,4 +1,6 @@
 import argparse
+import logging
+import timeit
 
 from src.config import RANDOM_SEEDS
 from src.data import DatasetUsage, MFPCBA, KFolds, BasicSplit
@@ -8,16 +10,19 @@ from src.training import run_experiment
 
 
 def main():
+    logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger("pytorch_lightning").setLevel(logging.CRITICAL)
+
     parser = argparse.ArgumentParser(description='Run Experiment')
     parser.add_argument('--name', type=str, required=True)
     parser.add_argument('--dataset', type=str, required=True)
     parser.add_argument('--epochs', type=int, required=False, default=100)
+    parser.add_argument('--batch-normalise', action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument('--use-mf-pcba-splits', action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('--k-folds', type=int, required=False)
     parser.add_argument('--num-workers', type=int, required=False, default=0)
 
     args = vars(parser.parse_args())
-    print(args)
     _validate_args(args)
 
     if args['use_mf_pcba_splits']:
@@ -49,13 +54,16 @@ def main():
                 num_layers=3,
                 layer_width=256,
                 pool_func=PoolingFunction.ADD,
-                batch_normalise=True,
+                batch_normalise=args['batch_normalise'],
                 activation=ActivationFunction.ReLU,
                 num_regression_layers=2
             )
         )
 
+    start = timeit.default_timer()
     run_experiment(args['name'], args['dataset'], DatasetUsage.DROnly, architectures, params, [1424])
+    end = timeit.default_timer()
+    logging.info(f"Finished experiment in {end - start}s.")
 
 
 def _validate_args(args: dict):

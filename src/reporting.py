@@ -1,4 +1,5 @@
 import json
+import logging
 import pickle
 from datetime import datetime
 
@@ -33,7 +34,7 @@ def save_experiment_results(results, experiment_dir):
         for key in stacked_seeds[0].keys()
     }
     df = pd.DataFrame(reformed_data)
-    print(df.to_string())
+    logging.info("Experiment results: \n" + df.to_string())
     df.to_csv(experiment_dir / 'results.csv', sep=';')  # Seperator other than comma due to architecture representation
 
 
