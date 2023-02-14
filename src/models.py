@@ -130,12 +130,12 @@ def construct_gnn(arch: GNNArchitecture) -> SequentialGNN:
         normalise = arch.batch_normalise[i]
         layer = _construct_layer(layer_type, num_in, num_out)
         layers.append((layer, "x, edge_index -> x"))
+        if i == num_layers - 1:
+            layers.append((arch.pool_func.value, "x, batch -> x"))
         if normalise:
             layers.append(BatchNorm(num_out))
         if activation is not None:
             layers.append(activation.value(inplace=True))
-        if i == num_layers - 1:
-            layers.append((arch.pool_func.value, "x, batch -> x"))
 
     return SequentialGNN(global_inputs, layers)
 
