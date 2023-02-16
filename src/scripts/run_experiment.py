@@ -17,11 +17,11 @@ def main():
     parser.add_argument('--name', type=str, required=True)
     parser.add_argument('--dataset', type=str, required=True)
     parser.add_argument('--epochs', type=int, required=False, default=100)
-    parser.add_argument('--batch-normalise', action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument('--use-mf-pcba-splits', action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument('--k-folds', type=int, required=False)
     parser.add_argument('--num-workers', type=int, required=False, default=0)
-    parser.add_argument('--precision', type=str, choices=['highest', 'high', 'medium'], default='high')
+    parser.add_argument('--precision', type=str, choices=['highest', 'high', 'medium'], default='highest')
+    parser.add_argument('--seeds', type=int, nargs='+', default=[0])
 
     args = vars(parser.parse_args())
     _validate_args(args)
@@ -34,7 +34,7 @@ def main():
         dataset_split = BasicSplit()
 
     params = HyperParameters(
-        random_seed=1424,
+        random_seed=args['seeds'],
         use_sd_readouts=False,
         dataset_split=dataset_split,
         test_split=0.2,
@@ -54,15 +54,15 @@ def main():
                 layer_type=layer_type,
                 num_layers=3,
                 layer_width=256,
-                pool_func=PoolingFunction.ADD,
-                batch_normalise=args['batch_normalise'],
+                pool_func=PoolingFunction.MEAN,
+                batch_normalise=True,
                 activation=ActivationFunction.ReLU,
                 num_regression_layers=2
             )
         )
 
     start = timeit.default_timer()
-    run_experiment(args['name'], args['dataset'], DatasetUsage.DROnly, architectures, params, [1424], args['precision'])
+    run_experiment(args['name'], args['dataset'], DatasetUsage.DROnly, architectures, params, args['seeds'], args['precision'])
     end = timeit.default_timer()
     logging.info(f"Finished experiment in {end - start}s.")
 
@@ -71,6 +71,7 @@ def _validate_args(args: dict):
     assert args['dataset'] in RANDOM_SEEDS.keys()
     assert args['epochs'] > 0
     assert not (args['use_mf_pcba_splits'] and args['k_folds'])
+    assert len(args['seeds']) > 0
 
 
 if __name__ == '__main__':

@@ -105,16 +105,16 @@ def build_uniform_gnn_architecture(
         activation_funcs=[activation] * num_layers,
         pool_func=pool_func,
         batch_normalise=[batch_normalise] * num_layers,
-        regression_layer=build_regression_layer_architecture(layer_width, num_regression_layers)
+        regression_layer=_build_uniform_regression_layer_architecture(layer_width, num_regression_layers, batch_normalise)
     )
 
 
-def build_regression_layer_architecture(input_features: int, layers: int) -> ModelArchitecture:
+def _build_uniform_regression_layer_architecture(input_features: int, layers: int, batch_normalise: bool) -> ModelArchitecture:
     return ModelArchitecture(
         layer_types=[RegressionLayerType.Linear] * layers,
         features=[input_features] * layers + [1],
         activation_funcs=[ActivationFunction.ReLU] * (layers - 1) + [None],
-        batch_normalise=[False] * layers,
+        batch_normalise=[batch_normalise] * (layers - 1) + [False],
     )
 
 
@@ -142,23 +142,26 @@ def construct_gnn(arch: GNNArchitecture) -> SequentialGNN:
 
 def construct_mlp(arch: ModelArchitecture) -> Sequential:
     layers = []
-    for layer_type, num_in, num_out, activation in zip(
-        arch.layer_types,
-        arch.features[:-1],
-        arch.features[1:],
-        arch.activation_funcs
-    ):
+    for i in range(len(arch.layer_types)):
+        layer_type = arch.layer_types[i]
+        num_in = arch.features[i]
+        num_out = arch.features[i + 1]
+        activation = arch.activation_funcs[i]
+        normalise = arch.batch_normalise[i]
         layer = _construct_layer(layer_type, num_in, num_out)
         layers.append(layer)
+        if normalise:
+            layers.append(BatchNorm(num_out))
         if activation is not None:
             layers.append(activation.value())
+
     return Sequential(*layers)
 
 
 def _construct_layer(layer_type, num_in, num_out):
     if layer_type == GNNLayerType.GIN:
         # TODO: Add customisable layer architectures
-        num_hidden = int(math.sqrt(num_in + num_out))
+        num_hidden = 2 * num_in
         mlp = Sequential(Linear(num_in, num_hidden), ReLU(), Linear(num_hidden, num_out))
         args = (mlp,)
     else:
