@@ -64,6 +64,7 @@ class LitGNN(tl.LightningModule):
         return {
             'optimizer': optimiser,
             'lr_scheduler': scheduler,
+            'monitor': 'loss_val',
         }
 
     def _report_loss(self, pred, y, prefix):
