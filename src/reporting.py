@@ -46,7 +46,7 @@ def save_run(trial_results, architecture, params, run_dir):
 
 def _save_trial_results(results, run_dir):
     filepath = run_dir / 'results.json'
-    trial_results = [{k: float(v) for k, v in trial.items()} for trial in results]
+    trial_results = {version: {k: float(v) for k, v in trial.items()} for version, trial in results.items()}
     with open(filepath, 'w') as out:
         json.dump(trial_results, out, indent=2)
 

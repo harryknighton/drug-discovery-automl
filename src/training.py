@@ -97,14 +97,14 @@ def run_experiment(
 def perform_run(dataset: HTSDataset, architecture: GNNArchitecture, params: HyperParameters, experiment_dir):
     """Perform multiple runs using k-fold cross validation and return the average results"""
     run_dir = experiment_dir / generate_run_name()
-    trial_results = []
+    trial_results = {}
     for version, (train_dataset, val_dataset, test_dataset) in partition_dataset(dataset, params):
         datamodule = LightningDataset(
             train_dataset, val_dataset, test_dataset,
             batch_size=params.batch_size, num_workers=params.num_workers
         )
         result = train_model(architecture, params, datamodule, run_dir, version=version)
-        trial_results.append(result)
+        trial_results[version] = result
 
     result = _calculate_run_result(trial_results)
     save_run(trial_results, architecture, params, run_dir)
@@ -162,10 +162,11 @@ def train_model(
     return result
 
 
-def _calculate_run_result(trial_results):
+def _calculate_run_result(trial_results: dict[int, dict]) -> dict[str, dict]:
     """Calculate the mean and variance of the results of all trials"""
     assert trial_results is not None
-    stacked_metrics = {name: np.array([float(result[name]) for result in trial_results]) for name in trial_results[0]}
+    results = list(trial_results.values())
+    stacked_metrics = {name: np.array([float(result[name]) for result in results]) for name in results[0]}
     means = {name: float(np.mean(metrics)) for name, metrics in stacked_metrics.items()}
     variances = {
         name: float(np.var(metrics, ddof=1)) if len(metrics) > 1 else 0.
