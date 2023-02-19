@@ -84,6 +84,7 @@ def run_experiment(
     logging.info(f"Running experiment {experiment_name} at {experiment_dir}")
     results = {}
     for architecture in architectures:
+        logging.info(f"Running on architecture {architecture}")
         architecture_results = {}
         for seed in random_seeds:
             tl.seed_everything(seed, workers=True)
