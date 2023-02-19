@@ -98,12 +98,12 @@ def perform_run(dataset: HTSDataset, architecture: GNNArchitecture, params: Hype
     """Perform multiple runs using k-fold cross validation and return the average results"""
     run_dir = experiment_dir / generate_run_name()
     trial_results = []
-    for i, (train_dataset, val_dataset, test_dataset) in enumerate(partition_dataset(dataset, params)):
+    for version, (train_dataset, val_dataset, test_dataset) in partition_dataset(dataset, params):
         datamodule = LightningDataset(
             train_dataset, val_dataset, test_dataset,
             batch_size=params.batch_size, num_workers=params.num_workers
         )
-        result = train_model(architecture, params, datamodule, run_dir, version=i)
+        result = train_model(architecture, params, datamodule, run_dir, version=version)
         trial_results.append(result)
 
     result = _calculate_run_result(trial_results)

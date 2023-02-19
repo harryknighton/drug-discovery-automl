@@ -79,17 +79,17 @@ def _set_atomic_num(num):
 def partition_dataset(dataset, params: HyperParameters):
     if isinstance(params.dataset_split, MFPCBA):
         for seed in RANDOM_SEEDS[dataset.name]:
-            logging.info("Using MF_PCBA split with seed " + str(seed))
-            yield mf_pcba_split(dataset, seed)
+            yield seed, mf_pcba_split(dataset, seed)
     elif isinstance(params.dataset_split, BasicSplit):
         np.random.seed(params.random_seed)
         test_dataset, training_dataset = split_dataset(dataset, params.test_split)
-        yield *split_dataset(dataset, params.train_val_split), test_dataset
+        train_dataset, val_dataset = split_dataset(training_dataset, params.train_val_split)
+        yield 0, (train_dataset, val_dataset, test_dataset)
     elif isinstance(params.dataset_split, KFolds):
         np.random.seed(params.random_seed)
         test_dataset, training_dataset = split_dataset(dataset, params.test_split)
-        for train_dataset, val_dataset in k_folds(dataset, params.dataset_split.k):
-            yield train_dataset, val_dataset, test_dataset
+        for i, (train_dataset, val_dataset) in enumerate(k_folds(training_dataset, params.dataset_split.k)):
+            yield i, (train_dataset, val_dataset, test_dataset)
     else:
         raise ValueError("Unsupported dataset splitting scheme " + str(params.dataset_split))
 
