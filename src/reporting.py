@@ -38,16 +38,17 @@ def save_experiment_results(results, experiment_dir):
     df.to_csv(experiment_dir / 'results.csv', sep=';')  # Seperator other than comma due to architecture representation
 
 
-def save_run(result, architecture, params, run_dir):
-    _save_run_result(result, run_dir)
+def save_run(trial_results, architecture, params, run_dir):
+    _save_trial_results(trial_results, run_dir)
     _save_architecture(architecture, run_dir)
     _save_hyper_parameters(params, run_dir)
 
 
-def _save_run_result(result, run_dir):
+def _save_trial_results(results, run_dir):
     filepath = run_dir / 'results.json'
+    trial_results = [{k: float(v) for k, v in trial.items()} for trial in results]
     with open(filepath, 'w') as out:
-        json.dump(result, out)
+        json.dump(trial_results, out, indent=2)
 
 
 def _save_hyper_parameters(parameters, run_dir):

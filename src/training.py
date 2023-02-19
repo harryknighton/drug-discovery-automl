@@ -107,7 +107,7 @@ def perform_run(dataset: HTSDataset, architecture: GNNArchitecture, params: Hype
         trial_results.append(result)
 
     result = _calculate_run_result(trial_results)
-    save_run(result, architecture, params, run_dir)
+    save_run(trial_results, architecture, params, run_dir)
     return result
 
 
