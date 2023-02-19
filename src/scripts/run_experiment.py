@@ -43,7 +43,7 @@ def main():
         test_split=0.2,
         train_val_split=0.75,
         batch_size=32,
-        early_stop_patience=30,
+        early_stop_patience=10,
         early_stop_min_delta=0.01,
         lr=0.0001,
         max_epochs=args['epochs'],
