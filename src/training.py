@@ -60,7 +60,11 @@ class LitGNN(tl.LightningModule):
 
     def configure_optimizers(self):
         optimiser = AdamW(self.parameters(), lr=self.params.lr)
-        return optimiser
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, factor=0.5, patience=10)
+        return {
+            'optimizer': optimiser,
+            'lr_scheduler': scheduler,
+        }
 
     def _report_loss(self, pred, y, prefix):
         loss = self.loss(pred, y)
