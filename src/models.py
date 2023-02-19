@@ -1,4 +1,3 @@
-import math
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
@@ -71,7 +70,6 @@ class ModelArchitecture:
         assert len(self.features) == num_layers + 1
         assert len(self.activation_funcs) == num_layers
         assert len(self.batch_normalise) == num_layers
-
 
 
 @dataclass
