@@ -39,12 +39,12 @@ class LitGNN(tl.LightningModule):
 
     def training_step(self, data, idx):
         pred = self.forward(data.x, data.edge_index, data.batch)
-        loss = self._report_loss(pred.flatten(), data.y[:, 0], 'train')
+        loss = self._report_loss(pred.flatten(), data.y[:, 0], 'train')  # Calculate loss on scaled labels
         return loss
 
     def validation_step(self, data, idx):
         pred = self.forward(data.x, data.edge_index, data.batch)
-        self._report_loss(pred.flatten(), data.y[:, 0], 'val')
+        self._report_loss(pred.flatten(), data.y[:, 0], 'val')  # Calculate loss on scaled labels
         self.val_metrics.update(self.label_scaler.inverse_transform(pred).flatten(), data.y[:, 1])
 
     def validation_epoch_end(self, outputs):
