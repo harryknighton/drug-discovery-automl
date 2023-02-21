@@ -7,7 +7,7 @@ import torch
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import MSELoss
-from torch.optim import AdamW
+from torch.optim import Adam
 import pytorch_lightning as tl
 from torch_geometric.data import LightningDataset
 from torch_geometric.data.lightning_datamodule import LightningDataModule
@@ -60,7 +60,7 @@ class LitGNN(tl.LightningModule):
         self.test_metrics.reset()
 
     def configure_optimizers(self):
-        optimiser = AdamW(self.parameters(), lr=self.params.lr)
+        optimiser = Adam(self.parameters(), lr=self.params.lr)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, factor=0.5, patience=20)
         return {
             'optimizer': optimiser,
