@@ -21,7 +21,7 @@ class HTSDataset(InMemoryDataset):
         root = str(DATA_DIR / name)
         super().__init__(root)
         self.data, self.slices = torch.load(self.processed_paths[0])
-        self.scaler = StandardScaler
+        self.scaler = StandardScaler()
         self._scale_labels()
 
     def __get__(self, idx):
