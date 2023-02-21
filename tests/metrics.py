@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from src.metrics import StandardScaler
+from src.metrics import StandardScaler, MinMaxScaler
 
 
 def test_standard_scaler_with_1d_input_raises_error():
@@ -24,3 +24,18 @@ def test_standard_scaler_inverse_transform():
     transformed = scaler.fit_transform(original)
     original_transformed = scaler.inverse_transform(transformed)
     assert torch.allclose(original, original_transformed)
+
+
+def test_minmax_scaler_inverse_transform():
+    original = torch.tensor([[1, 2, 3, 4, 5], [1, 3, 5, 7, 9]], dtype=torch.float32)
+    scaler = MinMaxScaler()
+    transformed = scaler.fit_transform(original)
+    original_transformed = scaler.inverse_transform(transformed)
+    assert torch.allclose(original, original_transformed)
+
+
+def test_minmax_scaler_transforms_to_correct_bounds():
+    original = torch.tensor([[1, 2, 3, 4, 5], [1, 3, 5, 7, 9]], dtype=torch.float32)
+    scaler = MinMaxScaler(minv=2, maxv=5)
+    transformed = scaler.fit_transform(original)
+    assert transformed.min() == 2 and transformed.max() == 5

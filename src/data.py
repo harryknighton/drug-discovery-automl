@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 from typing import List
 
@@ -10,6 +9,7 @@ from torch import Tensor
 from torch_geometric.data import Data, InMemoryDataset
 
 from src.config import DATAFILE_NAME, RANDOM_SEEDS, DATA_DIR
+from src.metrics import StandardScaler
 from src.parameters import DatasetUsage, HyperParameters, MFPCBA, BasicSplit, KFolds
 
 
@@ -21,6 +21,8 @@ class HTSDataset(InMemoryDataset):
         root = str(DATA_DIR / name)
         super().__init__(root)
         self.data, self.slices = torch.load(self.processed_paths[0])
+        self.scaler = StandardScaler
+        self._scale_labels()
 
     def __get__(self, idx):
         return self.get(idx)
@@ -40,6 +42,10 @@ class HTSDataset(InMemoryDataset):
         data_list = _process_data(df, self.sd_or_dr)
         data, slices = self.collate(data_list)
         torch.save((data, slices), self.processed_paths[0])
+
+    def _scale_labels(self):
+        scaled_labels = self.scaler.fit_transform(self.data.y.reshape(-1, 1))
+        self.data.y = torch.stack((scaled_labels.flatten(), self.data.y), dim=1)
 
 
 def _read_data(filepath: Path) -> pd.DataFrame:

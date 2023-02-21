@@ -1,10 +1,9 @@
-from typing import Any, Optional
+from abc import ABC
+from typing import Any
 
 import torch
 from torch import Tensor
 from torchmetrics import PearsonCorrCoef, MeanSquaredError, Metric, MetricCollection, MeanAbsoluteError, R2Score
-
-from src.data import HTSDataset
 
 
 class PearsonCorrCoefSquared(PearsonCorrCoef):
@@ -39,15 +38,33 @@ class MaxError(Metric):
         return self.max_error
 
 
-class StandardScaler:
-    def __init__(self, mean: Optional[int] = None, std: Optional[int] = None, epsilon: float = 1e-7):
-        """Standard Scaler for use with Pytorch Tensors on GPU
+class Scaler(torch.nn.Module, ABC):
+    def fit(self, values: Tensor) -> Tensor:
+        raise NotImplementedError()
 
-        Adapted from https://gist.github.com/farahmand-m/8a416f33a27d73a149f92ce4708beb40
-        """
-        self.means = None
-        self.stds = None
-        self.epsilon = epsilon
+    def transform(self, values: Tensor) -> Tensor:
+        raise NotImplementedError()
+
+    def inverse_transform(self, values: Tensor) -> Tensor:
+        raise NotImplementedError()
+
+    def fit_transform(self, values: Tensor) -> Tensor:
+        self.fit(values)
+        return self.transform(values)
+
+    @staticmethod
+    def _validate_input(values) -> None:
+        if values.dim() != 2:
+            raise ValueError("Values must be shape (n_samples, n_features) but got " + str(values.shape))
+
+
+class StandardScaler(Scaler):
+    def __init__(self, epsilon: float = 1e-7):
+        """Adapted from https://gist.github.com/farahmand-m/8a416f33a27d73a149f92ce4708beb40"""
+        super().__init__()
+        self.register_buffer('means', Tensor())
+        self.register_buffer('stds', Tensor())
+        self.register_buffer('epsilon', torch.tensor([epsilon]))
 
     def fit(self, values: Tensor):
         self._validate_input(values)
@@ -61,19 +78,37 @@ class StandardScaler:
         self._validate_input(values)
         return (values - self.means) / (self.stds + self.epsilon)
 
-    def fit_transform(self, values):
-        self.fit(values)
-        return self.transform(values)
-
     def inverse_transform(self, values):
         self._validate_input(values)
         return values * (self.stds + self.epsilon) + self.means
 
-    @staticmethod
-    def _validate_input(values):
-        if values.dim() != 2:
-            raise ValueError("Values must be shape (n_samples, n_features) but got " + str(values.shape))
 
+class MinMaxScaler(Scaler):
+    def __init__(self, scaled_min: int = 0, scaled_max: int = 1, epsilon: float = 1e-7):
+        super().__init__()
+        self.register_buffer('scaled_min', torch.tensor([scaled_min]))
+        self.register_buffer('scaled_max', torch.tensor([scaled_max]))
+        self.register_buffer('mins', Tensor())
+        self.register_buffer('maxs', Tensor())
+        self.register_buffer('epsilon', torch.tensor([epsilon]))
+
+    def fit(self, values: Tensor):
+        self._validate_input(values)
+        if values.shape[0] <= 1:
+            raise ValueError("Must have more than one sample to fit to, got " + str(values.shape[0]))
+        self.mins = torch.min(values, dim=0).values
+        self.maxs = torch.max(values, dim=0).values
+        assert len(self.mins) == len(self.maxs) == values.shape[-1]
+
+    def transform(self, values: Tensor):
+        self._validate_input(values)
+        standard_scale = (values - self.mins) / (self.maxs - self.mins + self.epsilon)
+        return standard_scale * (self.scaled_max - self.scaled_min) + self.scaled_min
+
+    def inverse_transform(self, values):
+        self._validate_input(values)
+        standard_scale = (values - self.scaled_min) / (self.scaled_max - self.scaled_min)
+        return standard_scale * (self.maxs - self.mins + self.epsilon) + self.mins
 
 
 DEFAULT_METRICS = MetricCollection([
