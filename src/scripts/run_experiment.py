@@ -40,11 +40,11 @@ def main():
         random_seed=args['seeds'],
         use_sd_readouts=False,
         dataset_split=dataset_split,
-        test_split=0.2,
-        train_val_split=0.75,
+        test_split=0.1,
+        train_val_split=0.9,
         batch_size=32,
-        early_stop_patience=10,
-        early_stop_min_delta=0.01,
+        early_stop_patience=30,
+        early_stop_min_delta=0,
         lr=0.0001,
         max_epochs=args['epochs'],
         num_workers=args['num_workers']
@@ -63,7 +63,7 @@ def main():
                             pool_func=pool_func,
                             batch_normalise=True,
                             activation=ActivationFunction.ReLU,
-                            num_regression_layers=2
+                            num_regression_layers=3
                         )
                     )
 

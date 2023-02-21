@@ -61,7 +61,7 @@ class LitGNN(tl.LightningModule):
 
     def configure_optimizers(self):
         optimiser = Adam(self.parameters(), lr=self.params.lr)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, factor=0.5, patience=20)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, factor=0.5, patience=10)
         return {
             'optimizer': optimiser,
             'lr_scheduler': scheduler,
