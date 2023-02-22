@@ -47,7 +47,7 @@ def main():
         batch_size=32,
         early_stop_patience=30,
         early_stop_min_delta=0,
-        lr=0.0001,
+        lr=3e-5,
         max_epochs=args['epochs'],
         num_workers=args['num_workers']
     )

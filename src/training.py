@@ -61,7 +61,7 @@ class LitGNN(tl.LightningModule):
 
     def configure_optimizers(self):
         optimiser = Adam(self.parameters(), lr=self.params.lr)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, factor=0.5, patience=10)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, factor=0.1, patience=10)
         return {
             'optimizer': optimiser,
             'lr_scheduler': scheduler,
@@ -158,7 +158,7 @@ def train_model(
         deterministic=True,
         accelerator='gpu',
         devices=1,
-        log_every_n_steps=1,
+        log_every_n_steps=5,
         max_epochs=params.max_epochs,
         callbacks=[checkpoint_callback, early_stop_callback],
         logger=logger,
