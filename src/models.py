@@ -96,21 +96,33 @@ def build_uniform_gnn_architecture(
     batch_normalise: bool,
     activation: ActivationFunction,
     num_regression_layers: int,
+    regression_layer_width: int,
 ) -> GNNArchitecture:
+    regression_architecture = _build_uniform_regression_layer_architecture(
+        layer_width,
+        regression_layer_width,
+        num_regression_layers,
+        batch_normalise
+    )
     return GNNArchitecture(
         layer_types=[layer_type] * num_layers,
         features=[DEFAULT_N_FEATURES] + [layer_width] * num_layers,
         activation_funcs=[activation] * num_layers,
         pool_func=pool_func,
         batch_normalise=[batch_normalise] * num_layers,
-        regression_layer=_build_uniform_regression_layer_architecture(layer_width, num_regression_layers, batch_normalise)
+        regression_layer=regression_architecture
     )
 
 
-def _build_uniform_regression_layer_architecture(input_features: int, layers: int, batch_normalise: bool) -> ModelArchitecture:
+def _build_uniform_regression_layer_architecture(
+    input_features: int,
+    hidden_features: int,
+    layers: int,
+    batch_normalise: bool
+) -> ModelArchitecture:
     return ModelArchitecture(
         layer_types=[RegressionLayerType.Linear] * layers,
-        features=[input_features] * layers + [1],
+        features=[input_features] + [hidden_features] * (max(layers - 1, 0)) + [1],
         activation_funcs=[ActivationFunction.ReLU] * (layers - 1) + [None],
         batch_normalise=[batch_normalise] * (layers - 1) + [False],
     )
