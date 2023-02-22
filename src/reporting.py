@@ -26,7 +26,8 @@ def save_experiment_results(results, experiment_dir):
                 reformed_results[(metric, measure)].append(value)
     df = pd.DataFrame(reformed_results)
     architectures = df[['architectures']]
-    logging_values = df.iloc[:, df.columns.get_level_values(1) == 'median']
+    measures = df.columns.get_level_values(1)
+    logging_values = df.iloc[:, (measures == 'median') | (measures == 'mean')]
     logging.info(f"Experiment results: \n{architectures.to_string()}\n{logging_values.to_string()}")
     df.to_csv(experiment_dir / 'results.csv', sep=';')  # Seperator other than comma due to architecture representation
 

@@ -129,6 +129,7 @@ def analyse_results_distribution(results: List[dict[str, float]]) -> dict[str, d
     for metric, values in stacked_metrics.items():
         percentiles = np.percentile(values, [0, 25, 50, 75, 100])
         metrics[metric] = {
+            'mean': np.mean(values),
             'min': percentiles[0],
             'p25': percentiles[1],
             'median': percentiles[2],
