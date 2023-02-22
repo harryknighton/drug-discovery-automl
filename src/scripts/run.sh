@@ -14,6 +14,19 @@ source /home/h/hjk51/dev/torch_1_13_1/bin/activate
 
 date;
 
-CUDA_VISIBLE_DEVICES=0 python -m src.scripts.run_experiment -N baseline -D AID1445 -e 200 --use-mf-pcba-splits --precision=medium -s 7339 2263 7272 -n 3 -l GCN -f 64 128 256 512 -p ADD;
+CUDA_VISIBLE_DEVICES=0 python -m src.scripts.run_experiment \
+  -N baseline \
+  -D AID1445 \
+  --epochs 150 \
+  --use-mf-pcba-splits \
+  --precision=medium \
+  --seeds 7339 2263 7272 \
+  --num-layers 2 \
+  --layer-types GCN \
+  --features 128 \
+  --pooling-functions ADD \
+  --num-regression-layers 2 \
+  --regression-features 128 \
+;
 
 date;
