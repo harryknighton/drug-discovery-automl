@@ -77,7 +77,6 @@ class LitGNN(tl.LightningModule):
 def run_experiment(
         experiment_name: str,
         dataset_name: str,
-        dataset_usage: DatasetUsage,
         architectures: List[GNNArchitecture],
         params: HyperParameters,
         random_seeds: List[int],
@@ -85,8 +84,8 @@ def run_experiment(
 ):
     """Perform a series of runs of different architectures and save the results"""
     torch.set_float32_matmul_precision(precision)
-    experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, dataset_usage, experiment_name)
-    dataset = HTSDataset(dataset_name, dataset_usage)
+    experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, params.dataset_usage, experiment_name)
+    dataset = HTSDataset(dataset_name, params.dataset_usage)
     logging.info(f"Running experiment {experiment_name} at {experiment_dir}")
     results = {}
     for architecture in architectures:

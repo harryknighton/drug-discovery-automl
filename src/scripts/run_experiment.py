@@ -40,7 +40,7 @@ def main():
 
     params = HyperParameters(
         random_seed=args['seeds'],
-        use_sd_readouts=False,
+        dataset_usage=DatasetUsage.DROnly,
         dataset_split=dataset_split,
         test_split=0.1,
         train_val_split=0.9,
@@ -71,7 +71,7 @@ def main():
                     )
 
     start = timeit.default_timer()
-    run_experiment(args['name'], args['dataset'], DatasetUsage.DROnly, architectures, params, args['seeds'], args['precision'])
+    run_experiment(args['name'], args['dataset'], architectures, params, args['seeds'], args['precision'])
     end = timeit.default_timer()
     logging.info(f"Finished experiment in {end - start}s.")
 

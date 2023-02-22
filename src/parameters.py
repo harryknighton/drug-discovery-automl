@@ -8,7 +8,6 @@ class DatasetUsage(Enum):
     SDOnly = auto()
     DROnly = auto()
     DRWithSDReadouts = auto()
-    DRWithSDEmbeddings = auto()
 
 
 class DatasetSplit(ABC):
@@ -32,7 +31,7 @@ class BasicSplit(DatasetSplit):
 @dataclass
 class HyperParameters:
     random_seed: int
-    use_sd_readouts: bool
+    dataset_usage: DatasetUsage
     dataset_split: DatasetSplit
     test_split: float
     train_val_split: float
