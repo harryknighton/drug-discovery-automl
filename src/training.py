@@ -15,7 +15,7 @@ from torchmetrics import MetricCollection
 
 from src.config import LOG_DIR
 from src.data import partition_dataset, HTSDataset, DatasetUsage
-from src.metrics import DEFAULT_METRICS, StandardScaler
+from src.metrics import DEFAULT_METRICS, StandardScaler, analyse_results_distribution
 from src.models import construct_gnn, construct_mlp, GNNArchitecture
 from src.parameters import HyperParameters
 from src.reporting import generate_experiment_dir, generate_run_name, save_run, save_experiment_results
@@ -91,12 +91,13 @@ def run_experiment(
     results = {}
     for architecture in architectures:
         logging.info(f"Running on architecture {architecture}")
-        architecture_results = {}
+        trials_results = []
         for seed in random_seeds:
             tl.seed_everything(seed, workers=True)
             params.random_seed = seed
             run_result = perform_run(dataset, architecture, params, experiment_dir)
-            architecture_results[seed] = run_result
+            trials_results.extend(list(run_result.values()))
+        architecture_results = analyse_results_distribution(trials_results)
         results[str(architecture)] = architecture_results
     save_experiment_results(results, experiment_dir)
 
@@ -118,9 +119,8 @@ def perform_run(
         result = train_model(architecture, params, datamodule, dataset.scaler, run_dir, version=version)
         trial_results[version] = result
 
-    result = _calculate_run_result(trial_results)
     save_run(trial_results, architecture, params, run_dir)
-    return result
+    return trial_results
 
 
 def train_model(
@@ -173,17 +173,3 @@ def train_model(
     model.test_results = None  # Free-up memory
 
     return result
-
-
-def _calculate_run_result(trial_results: dict[int, dict]) -> dict[str, dict]:
-    """Calculate the mean and variance of the results of all trials"""
-    assert trial_results is not None
-    results = list(trial_results.values())
-    stacked_metrics = {name: np.array([float(result[name]) for result in results]) for name in results[0]}
-    means = {name: float(np.mean(metrics)) for name, metrics in stacked_metrics.items()}
-    variances = {
-        name: float(np.var(metrics, ddof=1)) if len(metrics) > 1 else 0.
-        for name, metrics in stacked_metrics.items()
-    }
-    metrics = {name: {'mean': means[name], 'variance': variances[name]} for name in stacked_metrics}
-    return metrics

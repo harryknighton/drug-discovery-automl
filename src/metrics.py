@@ -1,6 +1,7 @@
 from abc import ABC
-from typing import Any
+from typing import Any, List
 
+import numpy as np
 import torch
 from torch import Tensor
 from torchmetrics import PearsonCorrCoef, MeanSquaredError, Metric, MetricCollection, MeanAbsoluteError, R2Score
@@ -118,3 +119,20 @@ DEFAULT_METRICS = MetricCollection([
     PearsonCorrCoefSquared(),
     R2Score(),
 ])
+
+
+def analyse_results_distribution(results: List[dict[str, float]]) -> dict[str, dict]:
+    """Calculate the distribution of the results of all trials"""
+    assert results is not None and len(results) > 0
+    stacked_metrics = {metric: np.array([float(result[metric]) for result in results]) for metric in results[0]}
+    metrics = {}
+    for metric, values in stacked_metrics.items():
+        percentiles = np.percentile(values, [0, 25, 50, 75, 100])
+        metrics[metric] = {
+            'min': percentiles[0],
+            'p25': percentiles[1],
+            'median': percentiles[2],
+            'p75': percentiles[3],
+            'max': percentiles[4]
+        }
+    return metrics

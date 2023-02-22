@@ -1,6 +1,7 @@
 import json
 import logging
 import pickle
+from collections import defaultdict
 from datetime import datetime
 
 import pandas as pd
@@ -17,24 +18,16 @@ def generate_run_name():
 
 
 def save_experiment_results(results, experiment_dir):
-    stacked_seeds = [
-        {
-            ('archs',): [arch] * len(seeds),
-            ('seeds',): list(seeds.keys()),
-            **{
-                (metric, measure): [run[metric][measure] for run in seeds.values()]
-                for metric in list(seeds.values())[0].keys() for measure in list(list(seeds.values())[0].values())[0].keys()
-            }
-        }
-        for arch, seeds in results.items()
-    ]
-
-    reformed_data = {
-        key: [item for arch_results in stacked_seeds for item in arch_results[key]]
-        for key in stacked_seeds[0].keys()
-    }
-    df = pd.DataFrame(reformed_data)
-    logging.info("Experiment results: \n" + df.to_string())
+    reformed_results = defaultdict(list)
+    for architecture, metrics in results.items():
+        reformed_results[('architectures',)].append(architecture)
+        for metric, measures in metrics.items():
+            for measure, value in measures.items():
+                reformed_results[(metric, measure)].append(value)
+    df = pd.DataFrame(reformed_results)
+    architectures = df[['architectures']]
+    logging_values = df.iloc[:, df.columns.get_level_values(1) == 'median']
+    logging.info(f"Experiment results: \n{architectures.to_string()}\n{logging_values.to_string()}")
     df.to_csv(experiment_dir / 'results.csv', sep=';')  # Seperator other than comma due to architecture representation
 
 
