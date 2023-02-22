@@ -168,7 +168,7 @@ def train_model(
 
     trainer.fit(model, datamodule=datamodule)
 
-    trainer.test(model, datamodule=datamodule)
+    trainer.test(ckpt_path='best', datamodule=datamodule)
     result = model.test_results
     model.test_results = None  # Free-up memory
 
