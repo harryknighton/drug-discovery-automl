@@ -98,7 +98,7 @@ def build_uniform_gnn_architecture(
     num_regression_layers: int,
     regression_layer_width: int,
 ) -> GNNArchitecture:
-    regression_architecture = _build_uniform_regression_layer_architecture(
+    regression_architecture = build_uniform_regression_layer_architecture(
         layer_width,
         regression_layer_width,
         num_regression_layers,
@@ -114,11 +114,11 @@ def build_uniform_gnn_architecture(
     )
 
 
-def _build_uniform_regression_layer_architecture(
+def build_uniform_regression_layer_architecture(
     input_features: int,
-    hidden_features: int,
-    layers: int,
-    batch_normalise: bool
+    hidden_features: int = 128,
+    layers: int = 3,
+    batch_normalise: bool = True
 ) -> ModelArchitecture:
     return ModelArchitecture(
         layer_types=[RegressionLayerType.Linear] * layers,

@@ -27,8 +27,8 @@ def main():
     parser.add_argument('-n', '--num-layers', type=int, nargs='+', default=[3])
     parser.add_argument('-l', '--layer-types', type=str, nargs='+', choices=gnn_layers_strs, default=gnn_layers_strs)
     parser.add_argument('-f', '--features', type=int, nargs='+', default=[128])
-    parser.add_argument('-r', '--num-regression-layers', type=int, default=3)
-    parser.add_argument('-w', '--regression-features', type=int, default=128)
+    parser.add_argument('-r', '--num-regression-layers', type=int)
+    parser.add_argument('-w', '--regression-features', type=int)
     parser.add_argument('-p', '--pooling-functions', type=str, nargs='+', choices=pooling_strs, default=pooling_strs)
     parser.add_argument('-s', '--seeds', type=int, nargs='+', required=True)
 
@@ -83,8 +83,8 @@ def _validate_args(args: dict):
     assert len(args['seeds']) > 0
     assert all(f > 0 for f in args['features'])
     assert all(n > 0 for n in args['num_layers'])
-    assert args['num_regression_layers'] > 0
-    assert args['regression_features'] > 0
+    assert args['num_regression_layers'] is None or args['num_regression_layers'] > 0
+    assert args['regression_features'] is None or args['regression_features'] > 0
 
 
 def _resolve_dataset_split(args):
