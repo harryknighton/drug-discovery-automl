@@ -17,6 +17,7 @@ class DatasetSplit(ABC):
 @dataclass(frozen=True)
 class KFolds(DatasetSplit):
     k: int
+    test_split: float
 
 
 @dataclass(frozen=True)
@@ -24,8 +25,10 @@ class MFPCBA(DatasetSplit):
     seeds: List[int]
 
 
+@dataclass(frozen=True)
 class BasicSplit(DatasetSplit):
-    pass
+    test_split: float
+    train_val_split: float
 
 
 @dataclass
@@ -33,8 +36,6 @@ class HyperParameters:
     random_seed: int
     dataset_usage: DatasetUsage
     dataset_split: DatasetSplit
-    test_split: float
-    train_val_split: float
     batch_size: int
     early_stop_patience: int
     early_stop_min_delta: float

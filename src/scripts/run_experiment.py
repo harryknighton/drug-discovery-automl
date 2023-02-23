@@ -55,8 +55,6 @@ def _experiment(args):
         random_seed=args['seeds'],
         dataset_usage=DatasetUsage.DROnly,
         dataset_split=dataset_split,
-        test_split=0.1,
-        train_val_split=0.9,
         batch_size=32,
         early_stop_patience=30,
         early_stop_min_delta=0,
@@ -108,11 +106,11 @@ def _validate_experiment_args(args: dict):
 
 def _resolve_dataset_split(args):
     if args['use_mf_pcba_splits']:
-        dataset_split = MFPCBA(RANDOM_SEEDS[args['dataset']])
+        dataset_split = MFPCBA(seeds=RANDOM_SEEDS[args['dataset']])
     elif args['k_folds']:
-        dataset_split = KFolds(args['k_folds'])
+        dataset_split = KFolds(k=args['k_folds'], test_split=0.1)
     else:
-        dataset_split = BasicSplit()
+        dataset_split = BasicSplit(test_split=0.1, train_val_split=0.9)
     return dataset_split
 
 

@@ -1,4 +1,3 @@
-import logging
 from pathlib import Path
 
 import hyperopt
@@ -19,9 +18,7 @@ def search_hyperparameters(dataset_name: str, search_space: dict, max_evals: int
     params = HyperParameters(
         random_seed=0,
         dataset_usage=DatasetUsage.DROnly,
-        dataset_split=BasicSplit(),
-        test_split=0.1,
-        train_val_split=0.9,
+        dataset_split=BasicSplit(test_split=0.1, train_val_split=0.9),
         batch_size=32,
         early_stop_patience=30,
         early_stop_min_delta=0,
@@ -64,8 +61,9 @@ def construct_search_space(name: str):
 
 
 def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_dir: Path):
-    test_dataset, training_dataset = split_dataset(dataset, params.test_split)
-    train_dataset, val_dataset = split_dataset(dataset, params.train_val_split)
+    # TODO: fix data splitting
+    test_dataset, training_dataset = split_dataset(dataset, 0.1)
+    train_dataset, val_dataset = split_dataset(dataset, 0.9)
     datamodule = LightningDataset(
         train_dataset, val_dataset, test_dataset,
         batch_size=params.batch_size, num_workers=params.num_workers

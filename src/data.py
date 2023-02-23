@@ -90,12 +90,12 @@ def partition_dataset(dataset, params: HyperParameters):
             yield seed, mf_pcba_split(dataset, seed)
     elif isinstance(params.dataset_split, BasicSplit):
         np.random.seed(params.random_seed)
-        test_dataset, training_dataset = split_dataset(dataset, params.test_split)
-        train_dataset, val_dataset = split_dataset(training_dataset, params.train_val_split)
+        test_dataset, training_dataset = split_dataset(dataset, params.dataset_split.test_split)
+        train_dataset, val_dataset = split_dataset(training_dataset, params.dataset_split.train_val_split)
         yield 0, (train_dataset, val_dataset, test_dataset)
     elif isinstance(params.dataset_split, KFolds):
         np.random.seed(params.random_seed)
-        test_dataset, training_dataset = split_dataset(dataset, params.test_split)
+        test_dataset, training_dataset = split_dataset(dataset, params.dataset_split.test_split)
         for i, (train_dataset, val_dataset) in enumerate(k_folds(training_dataset, params.dataset_split.k)):
             yield i, (train_dataset, val_dataset, test_dataset)
     else:

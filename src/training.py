@@ -12,7 +12,7 @@ from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
 from src.config import LOG_DIR, DEFAULT_LOGGER
-from src.data import partition_dataset, HTSDataset, DatasetUsage
+from src.data import partition_dataset, HTSDataset
 from src.metrics import DEFAULT_METRICS, StandardScaler, analyse_results_distribution
 from src.models import construct_gnn, construct_mlp, GNNArchitecture
 from src.parameters import HyperParameters
