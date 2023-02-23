@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import hyperopt
@@ -41,6 +42,7 @@ def search_hyperparameters(dataset_name: str, search_space: dict, max_evals: int
     best_results = perform_run(dataset, best_architecture, params, experiment_dir)
     DEFAULT_LOGGER.info(f"Best architecture: {best_architecture}")
     DEFAULT_LOGGER.info(f"Best performance: {best_results}")
+    _save_trials(trials, experiment_dir)
 
 
 def construct_search_space(name: str):
@@ -89,6 +91,12 @@ def _convert_to_gnn_architecture(space):
         pool_func=space['pool_func'],
         regression_layer=regression_architecture
     )
+
+
+def _save_trials(trials: hyperopt.Trials, experiment_dir: Path) -> None:
+    losses = trials.losses()
+    with open(experiment_dir / 'losses.json', 'w') as file:
+        json.dump(losses, file)
 
 
 if __name__ == '__main__':
