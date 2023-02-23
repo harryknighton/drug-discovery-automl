@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import hyperopt
@@ -10,13 +11,16 @@ from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArc
     build_uniform_regression_layer_architecture
 from src.parameters import DatasetUsage, HyperParameters, BasicSplit
 from src.reporting import generate_experiment_dir
-from src.training import train_model
+from src.training import train_model, perform_run
 
 
 def run_hyperopt(dataset_name: str, search_space: dict, params: HyperParameters, max_evals: int, experiment_name: str):
+    logging.getLogger().setLevel(logging.INFO)
+    logging.getLogger("pytorch_lightning").setLevel(logging.CRITICAL)
     name = 'hyperopt_' + experiment_name
     experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, params.dataset_usage, name)
-    objective = _prepare_objective(dataset_name, params, experiment_dir)
+    dataset = HTSDataset(dataset_name, DatasetUsage.DROnly)
+    objective = _prepare_objective(dataset, params, experiment_dir)
     trials = hyperopt.Trials()
     best = hyperopt.fmin(
         fn=objective,
@@ -25,19 +29,23 @@ def run_hyperopt(dataset_name: str, search_space: dict, params: HyperParameters,
         max_evals=max_evals,
         trials=trials
     )
-    print(hyperopt.space_eval(search_space, best))
+    best_architecture = _convert_to_gnn_architecture(hyperopt.space_eval(search_space, best))
+    best_results = perform_run(dataset, best_architecture, params, experiment_dir)
+    logging.info(f"Best architecture: {best_architecture}")
+    logging.info(f"Best performance: {best_results}")
 
 
-def _prepare_objective(dataset_name: str, params: HyperParameters, experiment_dir: Path):
-    dataset = HTSDataset(dataset_name, DatasetUsage.DROnly)
+def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_dir: Path):
     test_dataset, training_dataset = split_dataset(dataset, params.test_split)
     train_dataset, val_dataset = split_dataset(dataset, params.train_val_split)
-    datamodule = LightningDataset(train_dataset, val_dataset, test_dataset, batch_size=params.batch_size,
-                                  num_workers=params.num_workers)
+    datamodule = LightningDataset(
+        train_dataset, val_dataset, test_dataset,
+        batch_size=params.batch_size, num_workers=params.num_workers
+    )
 
     def objective(x):
         architecture = _convert_to_gnn_architecture(x)
-        print(architecture)
+        logging.debug("Evaluating architecture " + str(architecture))
         result = train_model(architecture, params, datamodule, dataset.scaler, experiment_dir)
         return {'loss': result['RootMeanSquaredError'], 'status': hyperopt.STATUS_OK}
 
@@ -46,7 +54,7 @@ def _prepare_objective(dataset_name: str, params: HyperParameters, experiment_di
 
 def _convert_to_gnn_architecture(space):
     layers = space['layers']
-    regression_architecture = build_uniform_regression_layer_architecture(input_features=layers['hidden_features'])
+    regression_architecture = build_uniform_regression_layer_architecture(input_features=int(layers['hidden_features']))
     return GNNArchitecture(
         layer_types=layers['layer_types'],
         features=[DEFAULT_N_FEATURES] + [int(layers['hidden_features'])] * layers['num'],
@@ -78,7 +86,7 @@ if __name__ == '__main__':
         'layers': hp.choice('layers', [
             {
                 'num': i,
-                'layer_types': [hp.choice(f'type{i}{j}', [GNNLayerType.GCN, GNNLayerType.GAT]) for j in range(i)],
+                'layer_types': [hp.choice(f'type{i}{j}', GNNLayerType) for j in range(i)],
                 'hidden_features': hp.quniform(f'features{i}', 16, 256, 8),
                 'activation_funcs': [ActivationFunction.ReLU] * i
             }
