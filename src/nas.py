@@ -74,9 +74,20 @@ def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_
     def objective(x):
         architecture = _convert_to_gnn_architecture(x)
         DEFAULT_LOGGER.debug("Evaluating architecture " + str(architecture))
-        result = train_model(architecture, params, datamodule, dataset.scaler, experiment_dir)
+        result = train_model(
+            architecture,
+            params,
+            datamodule,
+            dataset.scaler,
+            experiment_dir,
+            version=objective.version,
+            save_logs=False,
+            save_checkpoints=False
+        )
+        objective.version += 1
         return {'loss': result['RootMeanSquaredError'], 'status': hyperopt.STATUS_OK}
 
+    objective.version = 0
     return objective
 
 

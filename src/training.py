@@ -127,29 +127,35 @@ def train_model(
     datamodule: LightningDataModule,
     label_scaler: StandardScaler,
     run_dir: Path,
-    version: Optional[int] = None
+    version: Optional[int] = None,
+    save_logs: bool = True,
+    save_checkpoints: bool = True
 ):
     model = LitGNN(architecture, params, DEFAULT_METRICS, label_scaler)
 
-    checkpoint_callback = ModelCheckpoint(
-        filename='{epoch:02d}-{loss_val:.2f}',
-        monitor='loss_val',
-        mode='min',
-        save_top_k=1,
-    )
-
-    early_stop_callback = EarlyStopping(
+    callbacks = [EarlyStopping(
         monitor='loss_val',
         mode='min',
         patience=params.early_stop_patience,
         min_delta=params.early_stop_min_delta
-    )
+    )]
 
-    logger = TensorBoardLogger(
-        save_dir=run_dir,
-        name='',
-        version=version
-    )
+    if save_checkpoints:
+        callbacks.append(ModelCheckpoint(
+            filename='{epoch:02d}-{loss_val:.2f}',
+            monitor='loss_val',
+            mode='min',
+            save_top_k=1,
+        ))
+
+    if save_logs:
+        logger = TensorBoardLogger(
+            save_dir=run_dir,
+            name='',
+            version=version
+        )
+    else:
+        logger = False
 
     trainer = tl.Trainer(
         default_root_dir=run_dir,
@@ -158,10 +164,11 @@ def train_model(
         devices=1,
         log_every_n_steps=5,
         max_epochs=params.max_epochs,
-        callbacks=[checkpoint_callback, early_stop_callback],
+        enable_checkpointing=save_checkpoints,
+        callbacks=callbacks,
         logger=logger,
         enable_progress_bar=False,
-        enable_model_summary=True,
+        enable_model_summary=save_logs,
     )
 
     trainer.fit(model, datamodule=datamodule)
