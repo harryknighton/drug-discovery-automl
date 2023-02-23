@@ -103,10 +103,11 @@ def perform_run(
     dataset: HTSDataset,
     architecture: GNNArchitecture,
     params: HyperParameters,
-    experiment_dir: Path
+    experiment_dir: Path,
+    run_name: Optional[str] = None
 ):
     """Perform multiple runs using k-fold cross validation and return the average results"""
-    run_dir = experiment_dir / generate_run_name()
+    run_dir = experiment_dir / (run_name if run_name else generate_run_name())
     trial_results = {}
     for version, (train_dataset, val_dataset, test_dataset) in partition_dataset(dataset, params):
         datamodule = LightningDataset(

@@ -39,7 +39,7 @@ def search_hyperparameters(dataset_name: str, search_space: dict, max_evals: int
         trials=trials
     )
     best_architecture = _convert_to_gnn_architecture(hyperopt.space_eval(search_space, best))
-    best_results = perform_run(dataset, best_architecture, params, experiment_dir)
+    best_results = perform_run(dataset, best_architecture, params, experiment_dir, run_name='best')
     DEFAULT_LOGGER.info(f"Best architecture: {best_architecture}")
     DEFAULT_LOGGER.info(f"Best performance: {best_results}")
     _save_trials(trials, experiment_dir)
