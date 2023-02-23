@@ -5,34 +5,48 @@ import timeit
 from src.config import RANDOM_SEEDS
 from src.data import DatasetUsage, MFPCBA, KFolds, BasicSplit
 from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction
+from src.nas import search_hyperparameters, construct_search_space
 from src.parameters import HyperParameters
 from src.training import run_experiment
 
 
 def main():
-    logging.getLogger("pytorch_lightning").setLevel(logging.INFO)
+    parser = argparse.ArgumentParser(description='Run Experiment')
+    subparsers = parser.add_subparsers(required=True)
 
+    experiment = subparsers.add_parser('experiment')
+    experiment.set_defaults(func=_experiment)
     gnn_layers_strs = [x.name for x in GNNLayerType]
     pooling_strs = [x.name for x in PoolingFunction]
+    experiment.add_argument('-N', '--name', type=str, required=True)
+    experiment.add_argument('-D', '--dataset', type=str, required=True)
+    experiment.add_argument('-e', '--epochs', type=int, default=100)
+    experiment.add_argument('--use-mf-pcba-splits', action='store_true')
+    experiment.add_argument('--k-folds', type=int)
+    experiment.add_argument('--num-workers', type=int, default=0)
+    experiment.add_argument('--precision', type=str, choices=['highest', 'high', 'medium'], default='highest')
+    experiment.add_argument('-n', '--num-layers', type=int, nargs='+', default=[3])
+    experiment.add_argument('-l', '--layer-types', type=str, nargs='+', choices=gnn_layers_strs, default=gnn_layers_strs)
+    experiment.add_argument('-f', '--features', type=int, nargs='+', default=[128])
+    experiment.add_argument('-r', '--num-regression-layers', type=int)
+    experiment.add_argument('-w', '--regression-features', type=int)
+    experiment.add_argument('-p', '--pooling-functions', type=str, nargs='+', choices=pooling_strs, default=pooling_strs)
+    experiment.add_argument('-s', '--seeds', type=int, nargs='+', required=True)
 
-    parser = argparse.ArgumentParser(description='Run Experiment')
-    parser.add_argument('-N', '--name', type=str, required=True)
-    parser.add_argument('-D', '--dataset', type=str, required=True)
-    parser.add_argument('-e', '--epochs', type=int, default=100)
-    parser.add_argument('--use-mf-pcba-splits', action='store_true')
-    parser.add_argument('--k-folds', type=int)
-    parser.add_argument('--num-workers', type=int, default=0)
-    parser.add_argument('--precision', type=str, choices=['highest', 'high', 'medium'], default='highest')
-    parser.add_argument('-n', '--num-layers', type=int, nargs='+', default=[3])
-    parser.add_argument('-l', '--layer-types', type=str, nargs='+', choices=gnn_layers_strs, default=gnn_layers_strs)
-    parser.add_argument('-f', '--features', type=int, nargs='+', default=[128])
-    parser.add_argument('-r', '--num-regression-layers', type=int)
-    parser.add_argument('-w', '--regression-features', type=int)
-    parser.add_argument('-p', '--pooling-functions', type=str, nargs='+', choices=pooling_strs, default=pooling_strs)
-    parser.add_argument('-s', '--seeds', type=int, nargs='+', required=True)
+    optimise = subparsers.add_parser('optimise')
+    optimise.set_defaults(func=_optimise)
+    optimise.add_argument('-N', '--name', type=str, required=True)
+    optimise.add_argument('-D', '--dataset', type=str, required=True)
+    optimise.add_argument('-S', '--search-space', type=str, required=True)
+    optimise.add_argument('-e', '--max-evaluations', type=int, default=100)
 
     args = vars(parser.parse_args())
-    _validate_args(args)
+    args['func'](args)
+
+
+def _experiment(args):
+    logging.getLogger("pytorch_lightning").setLevel(logging.INFO)
+    _validate_experiment_args(args)
     dataset_split = _resolve_dataset_split(args)
     layer_types = _resolve_layers(args)
     pool_funcs = _resolve_pooling_function(args)
@@ -75,7 +89,13 @@ def main():
     logging.info(f"Finished experiment in {end - start}s.")
 
 
-def _validate_args(args: dict):
+def _optimise(args: dict):
+    logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
+    search_space = construct_search_space(args['search_space'])
+    search_hyperparameters(args['dataset'], search_space, args['max_evaluations'], args['name'])
+
+
+def _validate_experiment_args(args: dict):
     assert args['dataset'] in RANDOM_SEEDS.keys()
     assert args['epochs'] > 0
     assert not (args['use_mf_pcba_splits'] and args['k_folds'])

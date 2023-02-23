@@ -14,9 +14,21 @@ from src.reporting import generate_experiment_dir
 from src.training import train_model, perform_run
 
 
-def run_hyperopt(dataset_name: str, search_space: dict, params: HyperParameters, max_evals: int, experiment_name: str):
-    logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
+def search_hyperparameters(dataset_name: str, search_space: dict, max_evals: int, experiment_name: str):
     name = 'hyperopt_' + experiment_name
+    params = HyperParameters(
+        random_seed=0,
+        dataset_usage=DatasetUsage.DROnly,
+        dataset_split=BasicSplit(),
+        test_split=0.1,
+        train_val_split=0.9,
+        batch_size=32,
+        early_stop_patience=30,
+        early_stop_min_delta=0,
+        lr=3e-5,
+        max_epochs=1,
+        num_workers=0
+    )
     experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, params.dataset_usage, name)
     dataset = HTSDataset(dataset_name, DatasetUsage.DROnly)
     objective = _prepare_objective(dataset, params, experiment_dir)
@@ -32,6 +44,23 @@ def run_hyperopt(dataset_name: str, search_space: dict, params: HyperParameters,
     best_results = perform_run(dataset, best_architecture, params, experiment_dir)
     DEFAULT_LOGGER.info(f"Best architecture: {best_architecture}")
     DEFAULT_LOGGER.info(f"Best performance: {best_results}")
+
+
+def construct_search_space(name: str):
+    if name == 'simple':
+        return {
+            'pool_func': hp.choice('pool_func', PoolingFunction),
+            'batch_normalise': True,
+            'layers': hp.choice('layers', [
+                {
+                    'num': i,
+                    'layer_types': [hp.choice(f'type{i}{j}', GNNLayerType) for j in range(i)],
+                    'hidden_features': hp.quniform(f'features{i}', 16, 256, 8),
+                    'activation_funcs': [ActivationFunction.ReLU] * i
+                }
+                for i in range(1, 4)
+            ]),
+        }
 
 
 def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_dir: Path):
@@ -65,32 +94,5 @@ def _convert_to_gnn_architecture(space):
 
 
 if __name__ == '__main__':
-    params = HyperParameters(
-        random_seed=0,
-        dataset_usage=DatasetUsage.DROnly,
-        dataset_split=BasicSplit(),
-        test_split=0.1,
-        train_val_split=0.9,
-        batch_size=32,
-        early_stop_patience=30,
-        early_stop_min_delta=0,
-        lr=3e-5,
-        max_epochs=1,
-        num_workers=0
-    )
-
-    simple_search_space = {
-        'pool_func': hp.choice('pool_func', PoolingFunction),
-        'batch_normalise': True,
-        'layers': hp.choice('layers', [
-            {
-                'num': i,
-                'layer_types': [hp.choice(f'type{i}{j}', GNNLayerType) for j in range(i)],
-                'hidden_features': hp.quniform(f'features{i}', 16, 256, 8),
-                'activation_funcs': [ActivationFunction.ReLU] * i
-            }
-            for i in range(1, 4)
-        ]),
-    }
-
-    run_hyperopt('AID1445', simple_search_space, params, 10, 'test')
+    search_space = construct_search_space('simple')
+    search_hyperparameters('AID1445', search_space, 10, 'test')

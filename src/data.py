@@ -85,7 +85,6 @@ def _set_atomic_num(num):
 
 
 def partition_dataset(dataset, params: HyperParameters):
-    DEFAULT_LOGGER.debug()
     if isinstance(params.dataset_split, MFPCBA):
         for seed in RANDOM_SEEDS[dataset.name]:
             yield seed, mf_pcba_split(dataset, seed)
