@@ -1,8 +1,6 @@
-import logging
 from pathlib import Path
 from typing import List, Optional
 
-import numpy as np
 import torch
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
@@ -13,7 +11,7 @@ from torch_geometric.data import LightningDataset
 from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
-from src.config import LOG_DIR
+from src.config import LOG_DIR, DEFAULT_LOGGER
 from src.data import partition_dataset, HTSDataset, DatasetUsage
 from src.metrics import DEFAULT_METRICS, StandardScaler, analyse_results_distribution
 from src.models import construct_gnn, construct_mlp, GNNArchitecture
@@ -86,10 +84,10 @@ def run_experiment(
     torch.set_float32_matmul_precision(precision)
     experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, params.dataset_usage, experiment_name)
     dataset = HTSDataset(dataset_name, params.dataset_usage)
-    logging.info(f"Running experiment {experiment_name} at {experiment_dir}")
+    DEFAULT_LOGGER.info(f"Running experiment {experiment_name} at {experiment_dir}")
     results = {}
     for architecture in architectures:
-        logging.info(f"Running on architecture {architecture}")
+        DEFAULT_LOGGER.debug(f"Running experiment on architecture {architecture}")
         trials_results = []
         for seed in random_seeds:
             tl.seed_everything(seed, workers=True)

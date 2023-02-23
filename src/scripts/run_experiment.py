@@ -10,7 +10,6 @@ from src.training import run_experiment
 
 
 def main():
-    logging.getLogger().setLevel(logging.INFO)
     logging.getLogger("pytorch_lightning").setLevel(logging.INFO)
 
     gnn_layers_strs = [x.name for x in GNNLayerType]

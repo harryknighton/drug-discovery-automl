@@ -1,11 +1,11 @@
 import json
-import logging
 import pickle
 from collections import defaultdict
 from datetime import datetime
 
 import pandas as pd
 
+from src.config import DEFAULT_LOGGER
 from src.data import DatasetUsage
 
 
@@ -28,7 +28,7 @@ def save_experiment_results(results, experiment_dir):
     architectures = df[['architectures']]
     measures = df.columns.get_level_values(1)
     logging_values = df.iloc[:, (measures == 'median') | (measures == 'mean')]
-    logging.info(f"Experiment results: \n{architectures.to_string()}\n{logging_values.to_string()}")
+    DEFAULT_LOGGER.info(f"Experiment results: \n{architectures.to_string()}\n{logging_values.to_string()}")
     df.to_csv(experiment_dir / 'results.csv', sep=';')  # Seperator other than comma due to architecture representation
 
 

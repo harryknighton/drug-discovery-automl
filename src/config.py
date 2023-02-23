@@ -1,4 +1,10 @@
+import logging
 from pathlib import Path
+
+DEFAULT_LOGGER = logging.getLogger("automl")
+DEFAULT_LOGGER.setLevel(logging.INFO)
+_CONSOLE_HANDLER = logging.StreamHandler()
+DEFAULT_LOGGER.addHandler(_CONSOLE_HANDLER)
 
 DATAFILE_NAME = 'SD.csv'
 

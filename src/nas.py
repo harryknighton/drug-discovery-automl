@@ -5,7 +5,7 @@ import hyperopt
 from hyperopt import hp
 from torch_geometric.data import LightningDataset
 
-from src.config import LOG_DIR, DEFAULT_N_FEATURES
+from src.config import LOG_DIR, DEFAULT_N_FEATURES, DEFAULT_LOGGER
 from src.data import HTSDataset, split_dataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture
@@ -15,8 +15,7 @@ from src.training import train_model, perform_run
 
 
 def run_hyperopt(dataset_name: str, search_space: dict, params: HyperParameters, max_evals: int, experiment_name: str):
-    logging.getLogger().setLevel(logging.INFO)
-    logging.getLogger("pytorch_lightning").setLevel(logging.CRITICAL)
+    logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
     name = 'hyperopt_' + experiment_name
     experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, params.dataset_usage, name)
     dataset = HTSDataset(dataset_name, DatasetUsage.DROnly)
@@ -31,8 +30,8 @@ def run_hyperopt(dataset_name: str, search_space: dict, params: HyperParameters,
     )
     best_architecture = _convert_to_gnn_architecture(hyperopt.space_eval(search_space, best))
     best_results = perform_run(dataset, best_architecture, params, experiment_dir)
-    logging.info(f"Best architecture: {best_architecture}")
-    logging.info(f"Best performance: {best_results}")
+    DEFAULT_LOGGER.info(f"Best architecture: {best_architecture}")
+    DEFAULT_LOGGER.info(f"Best performance: {best_results}")
 
 
 def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_dir: Path):
@@ -45,7 +44,7 @@ def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_
 
     def objective(x):
         architecture = _convert_to_gnn_architecture(x)
-        logging.debug("Evaluating architecture " + str(architecture))
+        DEFAULT_LOGGER.debug("Evaluating architecture " + str(architecture))
         result = train_model(architecture, params, datamodule, dataset.scaler, experiment_dir)
         return {'loss': result['RootMeanSquaredError'], 'status': hyperopt.STATUS_OK}
 

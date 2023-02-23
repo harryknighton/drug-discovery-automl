@@ -8,7 +8,7 @@ from sklearn import model_selection
 from torch import Tensor
 from torch_geometric.data import Data, InMemoryDataset
 
-from src.config import DATAFILE_NAME, RANDOM_SEEDS, DATA_DIR
+from src.config import DATAFILE_NAME, RANDOM_SEEDS, DATA_DIR, DEFAULT_LOGGER
 from src.metrics import StandardScaler
 from src.parameters import DatasetUsage, HyperParameters, MFPCBA, BasicSplit, KFolds
 
@@ -36,6 +36,7 @@ class HTSDataset(InMemoryDataset):
         return [f'processed_{self.sd_or_dr.lower()}_data.pt']
 
     def process(self):
+        DEFAULT_LOGGER.debug(f"Processing dataset {self.name} at {self.root}")
         df = _read_data(Path(self.root) / self.raw_file_names[0])
         if self.sd_or_dr == 'DR':
             df = df[df['DR'].notnull()]
@@ -44,6 +45,7 @@ class HTSDataset(InMemoryDataset):
         torch.save((data, slices), self.processed_paths[0])
 
     def _scale_labels(self):
+        DEFAULT_LOGGER.debug(f"Scaling dataset with scaler {self.scaler}")
         scaled_labels = self.scaler.fit_transform(self.data.y.reshape(-1, 1))
         self.data.y = torch.stack((scaled_labels.flatten(), self.data.y), dim=1)
 
@@ -83,6 +85,7 @@ def _set_atomic_num(num):
 
 
 def partition_dataset(dataset, params: HyperParameters):
+    DEFAULT_LOGGER.debug()
     if isinstance(params.dataset_split, MFPCBA):
         for seed in RANDOM_SEEDS[dataset.name]:
             yield seed, mf_pcba_split(dataset, seed)
