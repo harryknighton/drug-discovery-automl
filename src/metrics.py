@@ -63,9 +63,9 @@ class StandardScaler(Scaler):
     def __init__(self, epsilon: float = 1e-7):
         """Adapted from https://gist.github.com/farahmand-m/8a416f33a27d73a149f92ce4708beb40"""
         super().__init__()
-        self.register_buffer('means', Tensor())
-        self.register_buffer('stds', Tensor())
-        self.register_buffer('epsilon', torch.tensor([epsilon]))
+        self.register_buffer('means', Tensor(), persistent=False)
+        self.register_buffer('stds', Tensor(), persistent=False)
+        self.register_buffer('epsilon', torch.tensor([epsilon]), persistent=False)
 
     def fit(self, values: Tensor):
         self._validate_input(values)
@@ -87,11 +87,11 @@ class StandardScaler(Scaler):
 class MinMaxScaler(Scaler):
     def __init__(self, scaled_min: int = 0, scaled_max: int = 1, epsilon: float = 1e-7):
         super().__init__()
-        self.register_buffer('scaled_min', torch.tensor([scaled_min]))
-        self.register_buffer('scaled_max', torch.tensor([scaled_max]))
-        self.register_buffer('mins', Tensor())
-        self.register_buffer('maxs', Tensor())
-        self.register_buffer('epsilon', torch.tensor([epsilon]))
+        self.register_buffer('scaled_min', torch.tensor([scaled_min]), persistent=False)
+        self.register_buffer('scaled_max', torch.tensor([scaled_max]), persistent=False)
+        self.register_buffer('mins', Tensor(), persistent=False)
+        self.register_buffer('maxs', Tensor(), persistent=False)
+        self.register_buffer('epsilon', torch.tensor([epsilon]), persistent=False)
 
     def fit(self, values: Tensor):
         self._validate_input(values)
