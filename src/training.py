@@ -30,6 +30,7 @@ class LitGNN(tl.LightningModule):
         self.test_metrics = metrics.clone()
         self.test_results = None
         self.label_scaler = label_scaler
+        self.save_hyperparameters("architecture", "params")
 
     def forward(self, x, edge_index, batch):
         embedding = self.gnn(x, edge_index, batch)

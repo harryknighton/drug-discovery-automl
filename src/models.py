@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, auto
 from functools import partial
 from typing import List, Optional
 
@@ -33,12 +33,15 @@ class ActivationFunction(Enum):
 
 
 class PoolingFunction(Enum):
-    MEAN = partial(global_mean_pool)
-    MAX = partial(global_max_pool)
-    ADD = partial(global_add_pool)
+    MEAN = auto()
+    MAX = auto()
+    ADD = auto()
 
-    def __call__(self, *args, **kwargs):
-        self.value(*args, **kwargs)
+POOLING_FUNCTIONS = {
+    PoolingFunction.MEAN: global_mean_pool,
+    PoolingFunction.MAX: global_max_pool,
+    PoolingFunction.ADD: global_add_pool,
+}
 
 
 @dataclass
@@ -141,7 +144,8 @@ def construct_gnn(arch: GNNArchitecture) -> SequentialGNN:
         layer = _construct_layer(layer_type, num_in, num_out)
         layers.append((layer, "x, edge_index -> x"))
         if i == num_layers - 1:
-            layers.append((arch.pool_func.value, "x, batch -> x"))
+            pool_func = POOLING_FUNCTIONS[arch.pool_func]
+            layers.append((pool_func, "x, batch -> x"))
         if normalise:
             layers.append(BatchNorm(num_out))
         if activation is not None:
