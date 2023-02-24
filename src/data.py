@@ -130,3 +130,9 @@ def k_folds(dataset: HTSDataset, k: int):
         train_dataset = dataset.index_select(train_index.tolist())
         val_dataset = dataset.index_select(val_index.tolist())
         yield train_dataset, val_dataset
+
+
+def augment_dataset_with_sd_readouts(dataset: HTSDataset, model: torch.nn.Module):
+    features = model(dataset.data.x, dataset.data.edge_index, dataset.data.batch).detach()
+    assert features.shape[1] == dataset.data.x.shape[1]
+    dataset.data.x = torch.stack((dataset.data.x, features), dim=1)

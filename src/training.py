@@ -12,10 +12,10 @@ from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
 from src.config import LOG_DIR, DEFAULT_LOGGER
-from src.data import partition_dataset, HTSDataset
+from src.data import partition_dataset, HTSDataset, augment_dataset_with_sd_readouts
 from src.metrics import DEFAULT_METRICS, StandardScaler, analyse_results_distribution
 from src.models import construct_gnn, construct_mlp, GNNArchitecture
-from src.parameters import HyperParameters
+from src.parameters import HyperParameters, DatasetUsage
 from src.reporting import generate_experiment_dir, generate_run_name, save_run, save_experiment_results
 
 
@@ -79,13 +79,18 @@ def run_experiment(
         architectures: List[GNNArchitecture],
         params: HyperParameters,
         random_seeds: List[int],
-        precision: str
+        precision: str,
+        sd_ckpt_path: Optional[Path] = None
 ):
     """Perform a series of runs of different architectures and save the results"""
     torch.set_float32_matmul_precision(precision)
     experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, params.dataset_usage, experiment_name)
-    dataset = HTSDataset(dataset_name, params.dataset_usage)
     DEFAULT_LOGGER.info(f"Running experiment {experiment_name} at {experiment_dir}")
+    DEFAULT_LOGGER.info(f"Loading dataset {dataset_name} containing {params.dataset_usage.name}")
+    dataset = HTSDataset(dataset_name, params.dataset_usage)
+    if params.dataset_usage == DatasetUsage.DRWithSDReadouts:
+        sd_model = LitGNN.load_from_checkpoint(sd_ckpt_path, label_scaler=dataset.scaler, metrics=DEFAULT_METRICS)
+        augment_dataset_with_sd_readouts(dataset, sd_model)
     results = {}
     for architecture in architectures:
         DEFAULT_LOGGER.debug(f"Running experiment on architecture {architecture}")

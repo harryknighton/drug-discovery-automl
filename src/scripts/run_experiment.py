@@ -1,8 +1,10 @@
 import argparse
 import logging
 import timeit
+from pathlib import Path
+from typing import Optional
 
-from src.config import RANDOM_SEEDS
+from src.config import RANDOM_SEEDS, LOG_DIR
 from src.data import DatasetUsage, MFPCBA, KFolds, BasicSplit
 from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction
 from src.nas import search_hyperparameters, construct_search_space
@@ -18,8 +20,10 @@ def main():
     experiment.set_defaults(func=_experiment)
     gnn_layers_strs = [x.name for x in GNNLayerType]
     pooling_strs = [x.name for x in PoolingFunction]
+    data_usage_strs = [x.name for x in DatasetUsage]
     experiment.add_argument('-N', '--name', type=str, required=True)
     experiment.add_argument('-D', '--dataset', type=str, required=True)
+    experiment.add_argument('-d', '--dataset-usage', type=str, choices=data_usage_strs, required=True)
     experiment.add_argument('-e', '--epochs', type=int, default=100)
     experiment.add_argument('--use-mf-pcba-splits', action='store_true')
     experiment.add_argument('--k-folds', type=int)
@@ -32,6 +36,7 @@ def main():
     experiment.add_argument('-w', '--regression-features', type=int)
     experiment.add_argument('-p', '--pooling-functions', type=str, nargs='+', choices=pooling_strs, default=pooling_strs)
     experiment.add_argument('-s', '--seeds', type=int, nargs='+', required=True)
+    experiment.add_argument('--sd-ckpt', type=str, default=None)
 
     optimise = subparsers.add_parser('optimise')
     optimise.set_defaults(func=_optimise)
@@ -48,12 +53,14 @@ def _experiment(args):
     logging.getLogger("pytorch_lightning").setLevel(logging.INFO)
     _validate_experiment_args(args)
     dataset_split = _resolve_dataset_split(args)
+    dataset_usage = _resolve_dataset_usage(args)
+    sd_ckpt_path = _resolve_sd_ckpt_path(args['sd_ckpt'], args['dataset'], dataset_usage)
     layer_types = _resolve_layers(args)
     pool_funcs = _resolve_pooling_function(args)
 
     params = HyperParameters(
         random_seed=args['seeds'],
-        dataset_usage=DatasetUsage.DROnly,
+        dataset_usage=dataset_usage,
         dataset_split=dataset_split,
         batch_size=32,
         early_stop_patience=30,
@@ -82,7 +89,15 @@ def _experiment(args):
                     )
 
     start = timeit.default_timer()
-    run_experiment(args['name'], args['dataset'], architectures, params, args['seeds'], args['precision'])
+    run_experiment(
+        experiment_name=args['name'],
+        dataset_name=args['dataset'],
+        architectures=architectures,
+        params=params,
+        random_seeds=args['seeds'],
+        precision=args['precision'],
+        sd_ckpt_path=sd_ckpt_path
+    )
     end = timeit.default_timer()
     logging.info(f"Finished experiment in {end - start}s.")
 
@@ -112,6 +127,24 @@ def _resolve_dataset_split(args):
     else:
         dataset_split = BasicSplit(test_split=0.1, train_val_split=0.9)
     return dataset_split
+
+
+def _resolve_dataset_usage(args):
+    usage = DatasetUsage[args['dataset_usage']]
+    if usage == DatasetUsage.DRWithSDReadouts and not args['sd_ckpt']:
+        raise ValueError("If using SD readouts must specify sd-ckpt")
+    return usage
+
+
+def _resolve_sd_ckpt_path(sd_ckpt: str, dataset_name: str, dataset_usage: DatasetUsage) -> Optional[Path]:
+    if sd_ckpt is None:
+        return None
+    sd_ckpt_path = LOG_DIR / dataset_name / dataset_usage.name / sd_ckpt
+    if not sd_ckpt_path.exists():
+        raise ValueError(f"No checkpoint at sd_ckpt {sd_ckpt_path}")
+    if sd_ckpt_path.suffix != '.ckpt':
+        raise ValueError(f"{sd_ckpt} is the wrong file type - should be .ckpt")
+    return sd_ckpt_path
 
 
 def _resolve_layers(args):
