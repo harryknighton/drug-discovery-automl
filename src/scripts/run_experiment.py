@@ -37,6 +37,7 @@ def main():
     experiment.add_argument('-p', '--pooling-functions', type=str, nargs='+', choices=pooling_strs, default=pooling_strs)
     experiment.add_argument('-s', '--seeds', type=int, nargs='+', required=True)
     experiment.add_argument('--sd-ckpt', type=str, default=None)
+    experiment.add_argument('--limit-batches', type=float, default=1.0)
 
     optimise = subparsers.add_parser('optimise')
     optimise.set_defaults(func=_optimise)
@@ -62,6 +63,7 @@ def _experiment(args):
         random_seed=args['seeds'],
         dataset_usage=dataset_usage,
         dataset_split=dataset_split,
+        limit_batches=args['limit_batches'],
         batch_size=32,
         early_stop_patience=30,
         early_stop_min_delta=0,
@@ -117,6 +119,7 @@ def _validate_experiment_args(args: dict):
     assert all(n > 0 for n in args['num_layers'])
     assert args['num_regression_layers'] is None or args['num_regression_layers'] > 0
     assert args['regression_features'] is None or args['regression_features'] > 0
+    assert args['limit_batches'] > 0
 
 
 def _resolve_dataset_split(args):

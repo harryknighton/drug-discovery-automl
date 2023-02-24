@@ -175,6 +175,9 @@ def train_model(
         logger=logger,
         enable_progress_bar=False,
         enable_model_summary=save_logs,
+        limit_train_batches=params.limit_batches,
+        limit_test_batches=params.limit_batches,
+        limit_val_batches=params.limit_batches,
     )
 
     trainer.fit(model, datamodule=datamodule)

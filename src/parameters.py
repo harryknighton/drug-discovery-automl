@@ -36,6 +36,7 @@ class HyperParameters:
     random_seed: int
     dataset_usage: DatasetUsage
     dataset_split: DatasetSplit
+    limit_batches: float
     batch_size: int
     early_stop_patience: int
     early_stop_min_delta: float
