@@ -15,16 +15,18 @@ source /home/h/hjk51/dev/torch_1_13_1/bin/activate
 date;
 
 CUDA_VISIBLE_DEVICES=0 python -m src.scripts.run_experiment \
-  -N baseline \
-  -D AID1445 \
-  --epochs 150 \
+  experiment \
+  --name baseline \
+  --dataset "$1" \
+  --dataset-usage "$2" \
+  --epochs 200 \
   --use-mf-pcba-splits \
   --precision=medium \
-  --seeds 7339 2263 7272 \
+  --seeds 4281 7945 7026 \
   --num-layers 2 \
-  --layer-types GCN \
+  --layer-types GCN GIN GAT GATv2 \
   --features 128 \
-  --pooling-functions ADD \
+  --pooling-functions ADD MEAN MAX \
   --num-regression-layers 2 \
   --regression-features 128 \
 ;
