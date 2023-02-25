@@ -128,8 +128,10 @@ def analyse_results_distribution(results: List[dict[str, float]]) -> dict[str, d
     metrics = {}
     for metric, values in stacked_metrics.items():
         percentiles = np.percentile(values, [0, 25, 50, 75, 100])
+        variance = np.var(values, ddof=1) if len(values) > 1 else 0.0
         metrics[metric] = {
             'mean': np.mean(values),
+            'variance': variance,
             'min': percentiles[0],
             'p25': percentiles[1],
             'median': percentiles[2],
