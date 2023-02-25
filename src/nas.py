@@ -2,6 +2,7 @@ import pickle
 from pathlib import Path
 
 import hyperopt
+import torch
 from hyperopt import hp
 from hyperopt.early_stop import no_progress_loss
 from torch_geometric.data import LightningDataset
@@ -22,15 +23,17 @@ def search_hyperparameters(
     max_evals: int,
     experiment_name: str,
     seed: int,
-    num_workers: int = 0
+    num_workers: int = 0,
+    precision: str = 'medium'
 ):
+    torch.set_float32_matmul_precision(precision)
     name = 'hyperopt_' + experiment_name
     opt_params = HyperParameters(
         random_seed=seed,
         dataset_usage=dataset_usage,
         dataset_split=BasicSplit(test_split=0.1, train_val_split=0.9),
         batch_size=32,
-        early_stop_patience=10,
+        early_stop_patience=30,
         early_stop_min_delta=0,
         lr=3e-5,
         max_epochs=100,

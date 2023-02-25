@@ -48,6 +48,7 @@ def main():
     optimise.add_argument('-e', '--max-evaluations', type=int, default=100)
     optimise.add_argument('-s', '--seed', type=int, required=True)
     optimise.add_argument('--num-workers', type=int, default=0)
+    optimise.add_argument('--precision', type=str, choices=['highest', 'high', 'medium'], default='highest')
 
     args = vars(parser.parse_args())
     args['func'](args)
@@ -121,6 +122,7 @@ def _optimise(args: dict):
         experiment_name=args['name'],
         seed=args['seed'],
         num_workers=args['num_workers'],
+        precision=args['precision']
     )
 
 
