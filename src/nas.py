@@ -50,7 +50,10 @@ def search_hyperparameters(
         early_stop_fn=no_progress_loss()
     )
     input_features = get_num_input_features(opt_params.dataset_usage)
-    best_architecture = _convert_to_gnn_architecture(hyperopt.space_eval(search_space, best), input_features=input_features)
+    best_architecture = _convert_to_gnn_architecture(
+        hyperopt.space_eval(search_space, best), input_features=input_features
+    )
+    DEFAULT_LOGGER.info(f"Best loss: {trials.best_trial['result']['loss']}")
     DEFAULT_LOGGER.info(f"Best architecture: {best_architecture}")
     _save_trials(trials, experiment_dir)
 
@@ -93,7 +96,7 @@ def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_
             experiment_dir,
             version=objective.version,
             save_logs=False,
-            save_checkpoints=False,
+            save_checkpoints=True,
         )
         objective.version += 1
         return {'loss': result['RootMeanSquaredError'], 'status': hyperopt.STATUS_OK}
@@ -116,5 +119,5 @@ def _convert_to_gnn_architecture(space: dict, input_features: int) -> GNNArchite
 
 
 def _save_trials(trials: hyperopt.Trials, experiment_dir: Path) -> None:
-    with open(experiment_dir / 'trials.pkl', 'w') as out:
+    with open(experiment_dir / 'trials.pkl', 'wb') as out:
         pickle.dump(trials, out)
