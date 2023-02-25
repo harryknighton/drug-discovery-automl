@@ -49,7 +49,8 @@ def search_hyperparameters(
         trials=trials,
         early_stop_fn=no_progress_loss()
     )
-    best_architecture = _convert_to_gnn_architecture(hyperopt.space_eval(search_space, best))
+    input_features = get_num_input_features(opt_params.dataset_usage)
+    best_architecture = _convert_to_gnn_architecture(hyperopt.space_eval(search_space, best), input_features=input_features)
     DEFAULT_LOGGER.info(f"Best architecture: {best_architecture}")
     _save_trials(trials, experiment_dir)
 
