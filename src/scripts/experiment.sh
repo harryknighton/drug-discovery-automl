@@ -7,6 +7,7 @@
 #SBATCH --partition=gpu
 #SBATCH -J AutoML-Baseline
 #SBATCH --account=su114-gpu
+#SBATCH --output "slurm-%x-%j.out"
 
 module purge
 module load CUDA/11.7.0 GCCcore/11.3.0 GCC/11.3.0 OpenMPI/4.1.4 Python/3.10.4
