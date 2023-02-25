@@ -7,7 +7,7 @@ from hyperopt.early_stop import no_progress_loss
 from torch_geometric.data import LightningDataset
 
 from src.config import LOG_DIR, DEFAULT_LOGGER
-from src.data import HTSDataset, partition_dataset, get_num_input_features
+from src.data import HTSDataset, partition_dataset, get_num_input_features, split_dataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture
 from src.parameters import DatasetUsage, HyperParameters, BasicSplit
@@ -73,7 +73,9 @@ def construct_search_space(name: str):
 
 
 def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_dir: Path):
-    train_dataset, val_dataset, test_dataset = partition_dataset(dataset, params)
+    assert isinstance(params.dataset_split, BasicSplit)
+    test_dataset, training_dataset = split_dataset(dataset, params.dataset_split.test_split)
+    train_dataset, val_dataset = split_dataset(training_dataset, params.dataset_split.train_val_split)
     datamodule = LightningDataset(
         train_dataset, val_dataset, test_dataset,
         batch_size=params.batch_size, num_workers=params.num_workers
