@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task 16
+#SBATCH --cpus-per-task 32
 #SBATCH --time=3:00:00
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:ampere_a100:1
 #SBATCH --partition=gpu
 #SBATCH -J AutoML-Baseline
 #SBATCH --account=su114-gpu
@@ -19,7 +19,7 @@ CUDA_VISIBLE_DEVICES=0 python -m src.scripts.run_experiment \
   --name baseline \
   --dataset "$1" \
   --dataset-usage "$2" \
-  --epochs 200 \
+  --epochs 100 \
   --use-mf-pcba-splits \
   --precision=medium \
   --seeds 4281 7945 7026 \
@@ -29,6 +29,7 @@ CUDA_VISIBLE_DEVICES=0 python -m src.scripts.run_experiment \
   --pooling-functions ADD MEAN MAX \
   --num-regression-layers 2 \
   --regression-features 128 \
+  --num-workers 32 \
 ;
 
 date;
