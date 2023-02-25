@@ -12,6 +12,9 @@ from src.config import DATAFILE_NAME, RANDOM_SEEDS, DATA_DIR, DEFAULT_LOGGER
 from src.metrics import StandardScaler
 from src.parameters import DatasetUsage, HyperParameters, MFPCBA, BasicSplit, KFolds
 
+_MAX_ATOMIC_NUM = 80
+_N_FEATURES = _MAX_ATOMIC_NUM + 33
+
 
 class HTSDataset(InMemoryDataset):
     def __init__(self, name: str, dataset_usage: DatasetUsage):
@@ -56,7 +59,7 @@ def _read_data(filepath: Path) -> pd.DataFrame:
 
 def _process_data(df: pd.DataFrame, sd_or_dr) -> List[Data]:
     import chemprop
-    _set_atomic_num(80)
+    _set_atomic_num(_MAX_ATOMIC_NUM)
     smiles = df['neut-smiles']
     mols = [chemprop.features.featurization.MolGraph(s) for s in smiles]
     xs = [Tensor(m.f_atoms) for m in mols]
@@ -136,3 +139,7 @@ def augment_dataset_with_sd_readouts(dataset: HTSDataset, model: torch.nn.Module
     features = model(dataset.data.x, dataset.data.edge_index, dataset.data.batch).detach()
     assert features.shape[1] == dataset.data.x.shape[1]
     dataset.data.x = torch.stack((dataset.data.x, features), dim=1)
+
+
+def get_num_input_features(dataset_usage: DatasetUsage):
+    return _N_FEATURES + (1 if dataset_usage == DatasetUsage.DRWithSDReadouts else 0)

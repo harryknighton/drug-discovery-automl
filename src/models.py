@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from enum import Enum, auto
-from functools import partial
 from typing import List, Optional
 
 from torch.nn import ReLU, Linear, Sequential
@@ -9,8 +8,6 @@ from torch_geometric.nn import (
     global_mean_pool, global_max_pool, global_add_pool,
     Sequential as SequentialGNN, BatchNorm
 )
-
-from src.config import DEFAULT_N_FEATURES
 
 
 class LayerType(Enum):
@@ -94,22 +91,23 @@ class GNNArchitecture(ModelArchitecture):
 def build_uniform_gnn_architecture(
     layer_type: GNNLayerType,
     num_layers: int,
-    layer_width: int,
+    input_features: int,
+    hidden_features: int,
     pool_func: PoolingFunction,
     batch_normalise: bool,
     activation: ActivationFunction,
     num_regression_layers: int,
-    regression_layer_width: int,
+    regression_layer_features: int,
 ) -> GNNArchitecture:
     regression_architecture = build_uniform_regression_layer_architecture(
-        layer_width,
-        regression_layer_width,
-        num_regression_layers,
-        batch_normalise
+        input_features=hidden_features,
+        hidden_features=regression_layer_features,
+        num_layers=num_regression_layers,
+        batch_normalise=batch_normalise
     )
     return GNNArchitecture(
         layer_types=[layer_type] * num_layers,
-        features=[DEFAULT_N_FEATURES] + [layer_width] * num_layers,
+        features=[input_features] + [hidden_features] * num_layers,
         activation_funcs=[activation] * num_layers,
         pool_func=pool_func,
         batch_normalise=[batch_normalise] * num_layers,
@@ -120,14 +118,14 @@ def build_uniform_gnn_architecture(
 def build_uniform_regression_layer_architecture(
     input_features: int,
     hidden_features: int = 128,
-    layers: int = 3,
+    num_layers: int = 3,
     batch_normalise: bool = True
 ) -> ModelArchitecture:
     return ModelArchitecture(
-        layer_types=[RegressionLayerType.Linear] * layers,
-        features=[input_features] + [hidden_features] * (max(layers - 1, 0)) + [1],
-        activation_funcs=[ActivationFunction.ReLU] * (layers - 1) + [None],
-        batch_normalise=[batch_normalise] * (layers - 1) + [False],
+        layer_types=[RegressionLayerType.Linear] * num_layers,
+        features=[input_features] + [hidden_features] * (max(num_layers - 1, 0)) + [1],
+        activation_funcs=[ActivationFunction.ReLU] * (num_layers - 1) + [None],
+        batch_normalise=[batch_normalise] * (num_layers - 1) + [False],
     )
 
 

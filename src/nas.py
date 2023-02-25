@@ -6,8 +6,8 @@ from hyperopt import hp
 from hyperopt.early_stop import no_progress_loss
 from torch_geometric.data import LightningDataset
 
-from src.config import LOG_DIR, DEFAULT_N_FEATURES, DEFAULT_LOGGER
-from src.data import HTSDataset, partition_dataset
+from src.config import LOG_DIR, DEFAULT_LOGGER
+from src.data import HTSDataset, partition_dataset, get_num_input_features
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture
 from src.parameters import DatasetUsage, HyperParameters, BasicSplit
@@ -77,9 +77,10 @@ def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_
         train_dataset, val_dataset, test_dataset,
         batch_size=params.batch_size, num_workers=params.num_workers
     )
+    input_features = get_num_input_features(params.dataset_usage)
 
     def objective(x):
-        architecture = _convert_to_gnn_architecture(x)
+        architecture = _convert_to_gnn_architecture(x, input_features)
         DEFAULT_LOGGER.debug("Evaluating architecture " + str(architecture))
         result = train_model(
             architecture,
@@ -98,12 +99,12 @@ def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_
     return objective
 
 
-def _convert_to_gnn_architecture(space):
+def _convert_to_gnn_architecture(space: dict, input_features: int) -> GNNArchitecture:
     layers = space['layers']
     regression_architecture = build_uniform_regression_layer_architecture(input_features=int(layers['hidden_features']))
     return GNNArchitecture(
         layer_types=layers['layer_types'],
-        features=[DEFAULT_N_FEATURES] + [int(layers['hidden_features'])] * layers['num'],
+        features=[input_features] + [int(layers['hidden_features'])] * layers['num'],
         activation_funcs=layers['activation_funcs'],
         batch_normalise=[space['batch_normalise']] * layers['num'],
         pool_func=space['pool_func'],

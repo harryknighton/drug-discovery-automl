@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from src.config import RANDOM_SEEDS, LOG_DIR
-from src.data import DatasetUsage, MFPCBA, KFolds, BasicSplit
+from src.data import DatasetUsage, MFPCBA, KFolds, BasicSplit, get_num_input_features
 from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction
 from src.nas import search_hyperparameters, construct_search_space
 from src.parameters import HyperParameters
@@ -61,6 +61,7 @@ def _experiment(args):
     sd_ckpt_path = _resolve_sd_ckpt_path(args['sd_ckpt'], args['dataset'])
     layer_types = _resolve_layers(args)
     pool_funcs = _resolve_pooling_function(args)
+    input_features = get_num_input_features(dataset_usage)
 
     params = HyperParameters(
         random_seed=args['seeds'],
@@ -84,12 +85,13 @@ def _experiment(args):
                         build_uniform_gnn_architecture(
                             layer_type=layer_type,
                             num_layers=num_layers,
-                            layer_width=features,
+                            input_features=input_features,
+                            hidden_features=features,
                             pool_func=pool_func,
                             batch_normalise=True,
                             activation=ActivationFunction.ReLU,
                             num_regression_layers=args['num_regression_layers'],
-                            regression_layer_width=args['regression_features']
+                            regression_layer_features=args['regression_features']
                         )
                     )
 

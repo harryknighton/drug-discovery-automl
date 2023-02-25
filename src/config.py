@@ -12,8 +12,6 @@ ROOT_DIR = Path(__file__).absolute().parent.parent
 DATA_DIR = ROOT_DIR / 'data'
 LOG_DIR = ROOT_DIR / 'logs'
 
-DEFAULT_N_FEATURES = 113
-
 
 # Seeds used in https://chemrxiv.org/engage/chemrxiv/article-details/636fa49b80c9bfb4dc944c1c
 # From https://github.com/davidbuterez/mf-pcba
