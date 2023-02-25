@@ -3,6 +3,7 @@ from pathlib import Path
 
 import hyperopt
 from hyperopt import hp
+from hyperopt.early_stop import no_progress_loss
 from torch_geometric.data import LightningDataset
 
 from src.config import LOG_DIR, DEFAULT_N_FEATURES, DEFAULT_LOGGER
@@ -45,7 +46,8 @@ def search_hyperparameters(
         space=search_space,
         algo=hyperopt.tpe.suggest,
         max_evals=max_evals,
-        trials=trials
+        trials=trials,
+        early_stop_fn=no_progress_loss()
     )
     best_architecture = _convert_to_gnn_architecture(hyperopt.space_eval(search_space, best))
     DEFAULT_LOGGER.info(f"Best architecture: {best_architecture}")
