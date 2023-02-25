@@ -184,9 +184,9 @@ def train_model(
     trainer.fit(model, datamodule=datamodule)
 
     if test_on_validation:
-        trainer.test(ckpt_path='best', dataloaders=datamodule.val_dataloader)
+        trainer.test(ckpt_path='best', dataloaders=datamodule.val_dataloader())
     else:
-        trainer.test(ckpt_path='best', dataloaders=datamodule.test_dataloader)
+        trainer.test(ckpt_path='best', dataloaders=datamodule.test_dataloader())
     result = model.test_results
     model.test_results = None  # Free-up memory
 
