@@ -43,8 +43,11 @@ def main():
     optimise.set_defaults(func=_optimise)
     optimise.add_argument('-N', '--name', type=str, required=True)
     optimise.add_argument('-D', '--dataset', type=str, required=True)
+    experiment.add_argument('-d', '--dataset-usage', type=str, choices=data_usage_strs, required=True)
     optimise.add_argument('-S', '--search-space', type=str, choices=["simple"], required=True)
     optimise.add_argument('-e', '--max-evaluations', type=int, default=100)
+    optimise.add_argument('-s', '--seed', type=int, required=True)
+    optimise.add_argument('--num-workers', type=int, default=0)
 
     args = vars(parser.parse_args())
     args['func'](args)
@@ -107,7 +110,16 @@ def _experiment(args):
 def _optimise(args: dict):
     logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
     search_space = construct_search_space(args['search_space'])
-    search_hyperparameters(args['dataset'], search_space, args['max_evaluations'], args['name'])
+    dataset_usage = _resolve_dataset_usage(args)
+    search_hyperparameters(
+        dataset_name=args['dataset'],
+        dataset_usage=dataset_usage,
+        search_space=search_space,
+        max_evals=args['max_evaluations'],
+        experiment_name=args['name'],
+        seed=args['seed'],
+        num_workers=args['num_workers'],
+    )
 
 
 def _validate_experiment_args(args: dict):

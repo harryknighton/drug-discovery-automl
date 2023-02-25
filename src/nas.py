@@ -14,18 +14,26 @@ from src.reporting import generate_experiment_dir
 from src.training import train_model, perform_run
 
 
-def search_hyperparameters(dataset_name: str, search_space: dict, max_evals: int, experiment_name: str):
+def search_hyperparameters(
+    dataset_name: str,
+    dataset_usage: DatasetUsage,
+    search_space: dict,
+    max_evals: int,
+    experiment_name: str,
+    seed: int,
+    num_workers: int = 0
+):
     name = 'hyperopt_' + experiment_name
     opt_params = HyperParameters(
-        random_seed=0,
-        dataset_usage=DatasetUsage.DROnly,
+        random_seed=seed,
+        dataset_usage=dataset_usage,
         dataset_split=BasicSplit(test_split=0.1, train_val_split=0.9),
         batch_size=32,
         early_stop_patience=10,
         early_stop_min_delta=0,
         lr=3e-5,
         max_epochs=100,
-        num_workers=0,
+        num_workers=num_workers,
         limit_batches=1.0
     )
     experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, opt_params.dataset_usage, name)
@@ -41,15 +49,15 @@ def search_hyperparameters(dataset_name: str, search_space: dict, max_evals: int
     )
     best_architecture = _convert_to_gnn_architecture(hyperopt.space_eval(search_space, best))
     test_params = HyperParameters(
-        random_seed=0,
-        dataset_usage=DatasetUsage.DROnly,
+        random_seed=seed,
+        dataset_usage=dataset_usage,
         dataset_split=MFPCBA(RANDOM_SEEDS[dataset_name]),
         batch_size=32,
         early_stop_patience=30,
         early_stop_min_delta=0,
         lr=3e-5,
-        max_epochs=200,
-        num_workers=0,
+        max_epochs=100,
+        num_workers=num_workers,
         limit_batches=1.0
     )
     best_results = perform_run(dataset, best_architecture, test_params, experiment_dir, run_name='best')
