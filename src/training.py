@@ -135,7 +135,8 @@ def train_model(
     run_dir: Path,
     version: Optional[int] = None,
     save_logs: bool = True,
-    save_checkpoints: bool = True
+    save_checkpoints: bool = True,
+    test_on_validation: bool = False,
 ):
     model = LitGNN(architecture, params, DEFAULT_METRICS, label_scaler)
 
@@ -182,7 +183,10 @@ def train_model(
 
     trainer.fit(model, datamodule=datamodule)
 
-    trainer.test(ckpt_path='best', datamodule=datamodule)
+    if test_on_validation:
+        trainer.test(ckpt_path='best', dataloaders=datamodule.val_dataloader)
+    else:
+        trainer.test(ckpt_path='best', dataloaders=datamodule.test_dataloader)
     result = model.test_results
     model.test_results = None  # Free-up memory
 
