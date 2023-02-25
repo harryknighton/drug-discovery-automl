@@ -55,7 +55,7 @@ def _experiment(args):
     _validate_experiment_args(args)
     dataset_split = _resolve_dataset_split(args)
     dataset_usage = _resolve_dataset_usage(args)
-    sd_ckpt_path = _resolve_sd_ckpt_path(args['sd_ckpt'], args['dataset'], dataset_usage)
+    sd_ckpt_path = _resolve_sd_ckpt_path(args['sd_ckpt'], args['dataset'])
     layer_types = _resolve_layers(args)
     pool_funcs = _resolve_pooling_function(args)
 
@@ -139,10 +139,10 @@ def _resolve_dataset_usage(args):
     return usage
 
 
-def _resolve_sd_ckpt_path(sd_ckpt: str, dataset_name: str, dataset_usage: DatasetUsage) -> Optional[Path]:
+def _resolve_sd_ckpt_path(sd_ckpt: str, dataset_name: str) -> Optional[Path]:
     if sd_ckpt is None:
         return None
-    sd_ckpt_path = LOG_DIR / dataset_name / dataset_usage.name / sd_ckpt
+    sd_ckpt_path = LOG_DIR / dataset_name / DatasetUsage.SDOnly.name / sd_ckpt
     if not sd_ckpt_path.exists():
         raise ValueError(f"No checkpoint at sd_ckpt {sd_ckpt_path}")
     if sd_ckpt_path.suffix != '.ckpt':
