@@ -43,7 +43,7 @@ def main():
     optimise.set_defaults(func=_optimise)
     optimise.add_argument('-N', '--name', type=str, required=True)
     optimise.add_argument('-D', '--dataset', type=str, required=True)
-    experiment.add_argument('-d', '--dataset-usage', type=str, choices=data_usage_strs, required=True)
+    optimise.add_argument('-d', '--dataset-usage', type=str, choices=data_usage_strs, required=True)
     optimise.add_argument('-S', '--search-space', type=str, choices=["simple"], required=True)
     optimise.add_argument('-e', '--max-evaluations', type=int, default=100)
     optimise.add_argument('-s', '--seed', type=int, required=True)
