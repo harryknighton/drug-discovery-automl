@@ -20,3 +20,15 @@ RANDOM_SEEDS = {
     "AID504329": [966204, 681725, 635271, 220018, 548422],
     "AID624330": [693665, 109746, 780835, 662995, 865845]
 }
+
+# Parameters used in "Multi-fidelity machine learning models for improved high-throughput screening predictions"
+DEFAULT_LR = 1e-4
+DEFAULT_BATCH_SIZE = 32
+DEFAULT_LR_PLATEAU_FACTOR = 0.5
+DEFAULT_LR_PLATEAU_PATIENCE = 10
+
+# Default parameters determined by experimentation
+DEFAULT_EARLY_STOP_PATIENCE = 30
+DEFAULT_EARLY_STOP_DELTA = 0.
+DEFAULT_TEST_SPLIT = 0.1
+DEFAULT_TRAIN_VAL_SPLIT = 0.9

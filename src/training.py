@@ -11,7 +11,7 @@ from torch_geometric.data import LightningDataset
 from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
-from src.config import LOG_DIR, DEFAULT_LOGGER
+from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR
 from src.data import partition_dataset, HTSDataset, augment_dataset_with_sd_readouts
 from src.metrics import DEFAULT_METRICS, StandardScaler, analyse_results_distribution
 from src.models import construct_gnn, construct_mlp, GNNArchitecture
@@ -60,7 +60,11 @@ class LitGNN(tl.LightningModule):
 
     def configure_optimizers(self):
         optimiser = Adam(self.parameters(), lr=self.params.lr)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, factor=0.1, patience=10)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimiser,
+            factor=DEFAULT_LR_PLATEAU_FACTOR,
+            patience=DEFAULT_LR_PLATEAU_PATIENCE
+        )
         return {
             'optimizer': optimiser,
             'lr_scheduler': scheduler,
@@ -110,7 +114,7 @@ def perform_run(
     architecture: GNNArchitecture,
     params: HyperParameters,
     experiment_dir: Path,
-    run_name: Optional[str] = None
+    run_name: Optional[str] = None,
 ):
     """Perform multiple runs using k-fold cross validation and return the average results"""
     run_dir = experiment_dir / (run_name if run_name else generate_run_name())
@@ -136,7 +140,7 @@ def train_model(
     version: Optional[int] = None,
     save_logs: bool = True,
     save_checkpoints: bool = True,
-    test_on_validation: bool = False,
+    test_on_validation: bool = False,  # If test data is needed after further optimisation
 ):
     model = LitGNN(architecture, params, DEFAULT_METRICS, label_scaler)
 
@@ -182,11 +186,8 @@ def train_model(
     )
 
     trainer.fit(model, datamodule=datamodule)
-
-    if test_on_validation:
-        trainer.test(ckpt_path='best', dataloaders=datamodule.val_dataloader())
-    else:
-        trainer.test(ckpt_path='best', dataloaders=datamodule.test_dataloader())
+    test_dataloader = datamodule.val_dataloader() if test_on_validation else datamodule.test_dataloader()
+    trainer.test(model, test_dataloader)
     result = model.test_results
     model.test_results = None  # Free-up memory
 

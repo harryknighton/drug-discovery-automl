@@ -7,8 +7,9 @@ from hyperopt import hp
 from hyperopt.early_stop import no_progress_loss
 from torch_geometric.data import LightningDataset
 
-from src.config import LOG_DIR, DEFAULT_LOGGER
-from src.data import HTSDataset, partition_dataset, get_num_input_features, split_dataset
+from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_BATCH_SIZE, DEFAULT_LR, \
+    DEFAULT_EARLY_STOP_PATIENCE, DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT
+from src.data import HTSDataset, get_num_input_features, split_dataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture
 from src.parameters import DatasetUsage, HyperParameters, BasicSplit
@@ -31,12 +32,12 @@ def search_hyperparameters(
     opt_params = HyperParameters(
         random_seed=seed,
         dataset_usage=dataset_usage,
-        dataset_split=BasicSplit(test_split=0.1, train_val_split=0.9),
-        batch_size=32,
-        early_stop_patience=30,
-        early_stop_min_delta=0,
-        lr=3e-5,
-        max_epochs=100,
+        dataset_split=BasicSplit(test_split=DEFAULT_TEST_SPLIT, train_val_split=DEFAULT_TRAIN_VAL_SPLIT),
+        batch_size=DEFAULT_BATCH_SIZE,
+        early_stop_patience=10,
+        early_stop_min_delta=DEFAULT_EARLY_STOP_DELTA,
+        lr=DEFAULT_LR,
+        max_epochs=50,
         num_workers=num_workers,
         limit_batches=1.0
     )
@@ -50,7 +51,6 @@ def search_hyperparameters(
         algo=hyperopt.tpe.suggest,
         max_evals=max_evals,
         trials=trials,
-        early_stop_fn=no_progress_loss()
     )
     input_features = get_num_input_features(opt_params.dataset_usage)
     best_architecture = _convert_to_gnn_architecture(

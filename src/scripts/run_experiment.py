@@ -4,7 +4,8 @@ import timeit
 from pathlib import Path
 from typing import Optional
 
-from src.config import RANDOM_SEEDS, LOG_DIR
+from src.config import RANDOM_SEEDS, LOG_DIR, DEFAULT_BATCH_SIZE, DEFAULT_LR, DEFAULT_EARLY_STOP_PATIENCE, \
+    DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT
 from src.data import DatasetUsage, MFPCBA, KFolds, BasicSplit, get_num_input_features
 from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction
 from src.nas import search_hyperparameters, construct_search_space
@@ -45,7 +46,7 @@ def main():
     optimise.add_argument('-D', '--dataset', type=str, required=True)
     optimise.add_argument('-d', '--dataset-usage', type=str, choices=data_usage_strs, required=True)
     optimise.add_argument('-S', '--search-space', type=str, choices=["simple"], required=True)
-    optimise.add_argument('-e', '--max-evaluations', type=int, default=100)
+    optimise.add_argument('-e', '--max-evaluations', type=int, default=300)
     optimise.add_argument('-s', '--seed', type=int, required=True)
     optimise.add_argument('--num-workers', type=int, default=0)
     optimise.add_argument('--precision', type=str, choices=['highest', 'high', 'medium'], default='highest')
@@ -69,10 +70,10 @@ def _experiment(args):
         dataset_usage=dataset_usage,
         dataset_split=dataset_split,
         limit_batches=args['limit_batches'],
-        batch_size=32,
-        early_stop_patience=30,
-        early_stop_min_delta=0,
-        lr=3e-5,
+        batch_size=DEFAULT_BATCH_SIZE,
+        early_stop_patience=DEFAULT_EARLY_STOP_PATIENCE,
+        early_stop_min_delta=DEFAULT_EARLY_STOP_DELTA,
+        lr=DEFAULT_LR,
         max_epochs=args['epochs'],
         num_workers=args['num_workers']
     )
@@ -142,9 +143,9 @@ def _resolve_dataset_split(args):
     if args['use_mf_pcba_splits']:
         dataset_split = MFPCBA(seeds=RANDOM_SEEDS[args['dataset']])
     elif args['k_folds']:
-        dataset_split = KFolds(k=args['k_folds'], test_split=0.1)
+        dataset_split = KFolds(k=args['k_folds'], test_split=DEFAULT_TEST_SPLIT)
     else:
-        dataset_split = BasicSplit(test_split=0.1, train_val_split=0.9)
+        dataset_split = BasicSplit(test_split=DEFAULT_TEST_SPLIT, train_val_split=DEFAULT_TRAIN_VAL_SPLIT)
     return dataset_split
 
 
