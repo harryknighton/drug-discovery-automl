@@ -136,9 +136,14 @@ def k_folds(dataset: HTSDataset, k: int):
 
 
 def augment_dataset_with_sd_readouts(dataset: HTSDataset, model: torch.nn.Module):
-    features = model(dataset.data.x, dataset.data.edge_index, dataset.data.batch).detach()
-    assert features.shape[1] == dataset.data.x.shape[1]
-    dataset.data.x = torch.stack((dataset.data.x, features), dim=1)
+    x, edge_index = dataset.data.x, dataset.data.edge_index
+    batch_indices = torch.arange(len(dataset.data.y), dtype=torch.int64)
+    slice_widths = torch.diff(dataset.slices['x'])
+    batch = torch.repeat_interleave(batch_indices, slice_widths)
+    features = model(x, edge_index, batch).detach()
+    expanded_sd_labels = features[batch]
+    dataset.data.x = torch.cat((dataset.data.x, expanded_sd_labels), dim=1)
+    assert dataset.data.x.shape[1] == get_num_input_features(DatasetUsage.DRWithSDReadouts)
 
 
 def get_num_input_features(dataset_usage: DatasetUsage):
