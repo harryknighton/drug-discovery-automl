@@ -105,11 +105,13 @@ def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_
             save_logs=False,
             save_checkpoints=False,
         )
+        cpu_result = {k: v.item() for k, v in result.items()}
+        del result  # Free up memory
         objective.version += 1
-        return {'loss': result['RootMeanSquaredError'], 'metrics': result, 'status': hyperopt.STATUS_OK}
+        return {'loss': cpu_result['RootMeanSquaredError'], 'metrics': cpu_result, 'status': hyperopt.STATUS_OK}
 
     return objective
-hyperopt
+
 
 def _convert_to_gnn_architecture(space: dict, input_features: int) -> GNNArchitecture:
     layers = space['layers']
