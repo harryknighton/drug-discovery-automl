@@ -1,3 +1,4 @@
+import gc
 import pickle
 from pathlib import Path
 
@@ -9,7 +10,8 @@ from hyperopt.early_stop import no_progress_loss
 from torch_geometric.data import LightningDataset
 
 from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_BATCH_SIZE, DEFAULT_LR, \
-    DEFAULT_EARLY_STOP_PATIENCE, DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT
+    DEFAULT_EARLY_STOP_PATIENCE, DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT, \
+    DEFAULT_SAVE_TRIALS_EVERY
 from src.data import HTSDataset, get_num_input_features, split_dataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture
@@ -26,7 +28,8 @@ def search_hyperparameters(
     experiment_name: str,
     seed: int,
     num_workers: int = 0,
-    precision: str = 'medium'
+    precision: str = 'medium',
+    trials: hyperopt.Trials = None
 ):
     torch.set_float32_matmul_precision(precision)
     name = 'hyperopt_' + experiment_name
@@ -43,22 +46,37 @@ def search_hyperparameters(
         limit_batches=1.0
     )
     experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, opt_params.dataset_usage, name)
+
+    # Load objects needed for HyperOpt
     dataset = HTSDataset(dataset_name, DatasetUsage.DROnly)
     objective = _prepare_objective(dataset, opt_params, experiment_dir)
-    trials = hyperopt.Trials()
-    best = hyperopt.fmin(
-        fn=objective,
-        space=search_space,
-        algo=hyperopt.tpe.suggest,
-        max_evals=max_evals,
-        trials=trials,
-        rstate=np.random.default_rng(seed)
-    )
+    if trials is None:
+        trials = hyperopt.Trials()
+    start = len(trials.trials)
+    rstate = np.random.default_rng(seed)
+
+    # Run NAS and save every `DEFAULT_SAVE_TRIALS_EVERY` evaluations
+    best = None
+    for interval in range(start, max_evals, DEFAULT_SAVE_TRIALS_EVERY):
+        stop = min(interval + DEFAULT_SAVE_TRIALS_EVERY, max_evals)
+        best = hyperopt.fmin(
+            fn=objective,
+            space=search_space,
+            algo=hyperopt.tpe.suggest,
+            max_evals=stop,
+            trials=trials,
+            rstate=rstate
+        )
+        _save_trials(trials, experiment_dir)
+        with torch.no_grad():  # Prevent crashes
+            gc.collect()
+            torch.cuda.empty_cache()
+
+    assert best is not None
     input_features = get_num_input_features(opt_params.dataset_usage)
     best_architecture = _convert_to_gnn_architecture(
         hyperopt.space_eval(search_space, best), input_features=input_features
     )
-    _save_trials(trials, experiment_dir)
     DEFAULT_LOGGER.info(f"Best results: {trials.best_trial['result']['metrics']}")
     DEFAULT_LOGGER.info(f"Best architecture: {best_architecture}")
 
@@ -95,16 +113,20 @@ def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_
             objective.version = 0
         architecture = _convert_to_gnn_architecture(x, input_features)
         DEFAULT_LOGGER.debug("Evaluating architecture " + str(architecture))
-        result = train_model(
-            architecture,
-            params,
-            datamodule,
-            dataset.scaler,
-            experiment_dir,
-            version=objective.version,
-            save_logs=False,
-            save_checkpoints=False,
-        )
+        try:
+            result = train_model(
+                architecture,
+                params,
+                datamodule,
+                dataset.scaler,
+                experiment_dir,
+                version=objective.version,
+                save_logs=False,
+                save_checkpoints=False,
+            )
+        except RuntimeError as e:
+            DEFAULT_LOGGER.error(f"While training model error {e} was raised.")
+            return {'status': hyperopt.STATUS_FAIL}
         cpu_result = {k: v.item() for k, v in result.items()}
         del result  # Free up memory
         objective.version += 1

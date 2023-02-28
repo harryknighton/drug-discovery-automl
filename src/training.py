@@ -189,6 +189,8 @@ def train_model(
     test_dataloader = datamodule.val_dataloader() if test_on_validation else datamodule.test_dataloader()
     trainer.test(model, test_dataloader)
     result = model.test_results
-    model.test_results = None  # Free-up memory
+
+    # Free-up memory
+    del model
 
     return result
