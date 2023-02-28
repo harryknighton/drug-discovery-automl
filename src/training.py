@@ -12,7 +12,7 @@ from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
 from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR
-from src.data import partition_dataset, HTSDataset, augment_dataset_with_sd_readouts
+from src.data import partition_dataset, HTSDataset
 from src.metrics import DEFAULT_METRICS, StandardScaler, analyse_results_distribution
 from src.models import construct_gnn, construct_mlp, GNNArchitecture
 from src.parameters import HyperParameters, DatasetUsage
@@ -94,7 +94,7 @@ def run_experiment(
     dataset = HTSDataset(dataset_name, params.dataset_usage)
     if params.dataset_usage == DatasetUsage.DRWithSDReadouts:
         sd_model = LitGNN.load_from_checkpoint(sd_ckpt_path, label_scaler=dataset.scaler, metrics=DEFAULT_METRICS)
-        augment_dataset_with_sd_readouts(dataset, sd_model)
+        dataset.augment_dataset_with_sd_readouts(sd_model)
     results = {}
     for architecture in architectures:
         DEFAULT_LOGGER.debug(f"Running experiment on architecture {architecture}")

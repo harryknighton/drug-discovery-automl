@@ -52,6 +52,22 @@ class HTSDataset(InMemoryDataset):
         scaled_labels = self.scaler.fit_transform(self.data.y.reshape(-1, 1))
         self.data.y = torch.stack((scaled_labels.flatten(), self.data.y), dim=1)
 
+    def augment_dataset_with_sd_readouts(self, model: torch.nn.Module):
+        """Predict SD labels using `model` and add them to the dataset
+
+        WARNING: This must be called before the dataset is accessed externally as when `self.get()` is called
+            the current `self.data.x` is cached in `self._data_list`
+        """
+        assert self._data_list is None or all(x is None for x in self._data_list)
+        x, edge_index = self.data.x, self.data.edge_index
+        batch_indices = torch.arange(len(self.data.y), dtype=torch.int64)
+        slice_widths = torch.diff(self.slices['x'])
+        batch = torch.repeat_interleave(batch_indices, slice_widths)
+        features = model(x, edge_index, batch).detach()
+        expanded_sd_labels = features[batch]
+        self.data.x = torch.cat((self.data.x, expanded_sd_labels), dim=1)
+        assert self.data.x.shape[1] == get_num_input_features(DatasetUsage.DRWithSDReadouts)
+
 
 def _read_data(filepath: Path) -> pd.DataFrame:
     return pd.read_csv(filepath)
@@ -133,17 +149,6 @@ def k_folds(dataset: HTSDataset, k: int):
         train_dataset = dataset.index_select(train_index.tolist())
         val_dataset = dataset.index_select(val_index.tolist())
         yield train_dataset, val_dataset
-
-
-def augment_dataset_with_sd_readouts(dataset: HTSDataset, model: torch.nn.Module):
-    x, edge_index = dataset.data.x, dataset.data.edge_index
-    batch_indices = torch.arange(len(dataset.data.y), dtype=torch.int64)
-    slice_widths = torch.diff(dataset.slices['x'])
-    batch = torch.repeat_interleave(batch_indices, slice_widths)
-    features = model(x, edge_index, batch).detach()
-    expanded_sd_labels = features[batch]
-    dataset.data.x = torch.cat((dataset.data.x, expanded_sd_labels), dim=1)
-    assert dataset.data.x.shape[1] == get_num_input_features(DatasetUsage.DRWithSDReadouts)
 
 
 def get_num_input_features(dataset_usage: DatasetUsage):
