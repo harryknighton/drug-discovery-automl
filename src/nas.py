@@ -2,6 +2,7 @@ import pickle
 from pathlib import Path
 
 import hyperopt
+import numpy as np
 import torch
 from hyperopt import hp
 from hyperopt.early_stop import no_progress_loss
@@ -51,6 +52,7 @@ def search_hyperparameters(
         algo=hyperopt.tpe.suggest,
         max_evals=max_evals,
         trials=trials,
+        rstate=np.random.default_rng(seed)
     )
     input_features = get_num_input_features(opt_params.dataset_usage)
     best_architecture = _convert_to_gnn_architecture(
