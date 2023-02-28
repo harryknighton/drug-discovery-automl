@@ -153,10 +153,10 @@ def train_model(
 
     if save_checkpoints:
         callbacks.append(ModelCheckpoint(
-            filename='{epoch:02d}-{loss_val:.2f}',
-            monitor='loss_val',
-            mode='min',
-            save_top_k=1,
+            # filename='{epoch:02d}-{loss_val:.2f}',
+            # monitor='loss_val',
+            save_last=True,
+            save_top_k=0
         ))
 
     if save_logs:
