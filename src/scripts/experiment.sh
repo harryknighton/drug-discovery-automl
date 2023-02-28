@@ -5,7 +5,7 @@
 #SBATCH --time=3:00:00
 #SBATCH --gres=gpu:ampere_a100:1
 #SBATCH --partition=gpu
-#SBATCH -J AutoML-Baseline
+#SBATCH -J automl-baseline
 #SBATCH --account=su114-gpu
 #SBATCH --output "slurm-%x-%j.out"
 
