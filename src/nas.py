@@ -8,6 +8,7 @@ import torch
 from hyperopt import hp
 from hyperopt.early_stop import no_progress_loss
 from torch_geometric.data import LightningDataset
+import pytorch_lightning as tl
 
 from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_BATCH_SIZE, DEFAULT_LR, \
     DEFAULT_EARLY_STOP_PATIENCE, DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT, \
@@ -32,6 +33,7 @@ def search_hyperparameters(
     trials: hyperopt.Trials = None
 ):
     torch.set_float32_matmul_precision(precision)
+    tl.seed_everything(seed, workers=True)
     name = 'hyperopt_' + experiment_name
     opt_params = HyperParameters(
         random_seed=seed,
@@ -46,6 +48,8 @@ def search_hyperparameters(
         limit_batches=1.0
     )
     experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, opt_params.dataset_usage, name)
+
+    DEFAULT_LOGGER.info(f"Running NAS experiment {experiment_name} on {dataset_usage}at {experiment_dir}")
 
     # Load objects needed for HyperOpt
     dataset = HTSDataset(dataset_name, DatasetUsage.DROnly)
@@ -149,7 +153,6 @@ def _convert_to_gnn_architecture(space: dict, input_features: int) -> GNNArchite
 
 
 def _save_trials(trials: hyperopt.Trials, experiment_dir: Path) -> None:
-    if not experiment_dir.exists():
-        experiment_dir.mkdir()
+    experiment_dir.mkdir(parents=True, exist_ok=True)
     with open(experiment_dir / 'trials.pkl', 'wb') as out:
         pickle.dump(trials, out)
