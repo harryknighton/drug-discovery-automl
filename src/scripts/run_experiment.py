@@ -46,7 +46,7 @@ def main():
     optimise.add_argument('-D', '--dataset', type=str, required=True)
     optimise.add_argument('-d', '--dataset-usage', type=str, choices=data_usage_strs, required=True)
     optimise.add_argument('-S', '--search-space', type=str, choices=["simple"], required=True)
-    optimise.add_argument('-e', '--max-evaluations', type=int, default=300)
+    optimise.add_argument('-e', '--max-evaluations', type=int, default=1000)
     optimise.add_argument('-s', '--seed', type=int, required=True)
     optimise.add_argument('--num-workers', type=int, default=0)
     optimise.add_argument('--precision', type=str, choices=['highest', 'high', 'medium'], default='highest')

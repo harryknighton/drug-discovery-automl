@@ -34,10 +34,10 @@ def search_hyperparameters(
         dataset_usage=dataset_usage,
         dataset_split=BasicSplit(test_split=DEFAULT_TEST_SPLIT, train_val_split=DEFAULT_TRAIN_VAL_SPLIT),
         batch_size=DEFAULT_BATCH_SIZE,
-        early_stop_patience=10,
+        early_stop_patience=DEFAULT_EARLY_STOP_PATIENCE,
         early_stop_min_delta=DEFAULT_EARLY_STOP_DELTA,
         lr=DEFAULT_LR,
-        max_epochs=50,
+        max_epochs=100,
         num_workers=num_workers,
         limit_batches=1.0
     )
@@ -56,9 +56,9 @@ def search_hyperparameters(
     best_architecture = _convert_to_gnn_architecture(
         hyperopt.space_eval(search_space, best), input_features=input_features
     )
-    DEFAULT_LOGGER.info(f"Best loss: {trials.best_trial['result']['loss']}")
-    DEFAULT_LOGGER.info(f"Best architecture: {best_architecture}")
     _save_trials(trials, experiment_dir)
+    DEFAULT_LOGGER.info(f"Best results: {trials.best_trial['result']['metrics']}")
+    DEFAULT_LOGGER.info(f"Best architecture: {best_architecture}")
 
 
 def construct_search_space(name: str):
@@ -89,6 +89,8 @@ def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_
     input_features = get_num_input_features(params.dataset_usage)
 
     def objective(x):
+        if not hasattr(objective, 'version'):
+            objective.version = 0
         architecture = _convert_to_gnn_architecture(x, input_features)
         DEFAULT_LOGGER.debug("Evaluating architecture " + str(architecture))
         result = train_model(
@@ -99,14 +101,13 @@ def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_
             experiment_dir,
             version=objective.version,
             save_logs=False,
-            save_checkpoints=True,
+            save_checkpoints=False,
         )
         objective.version += 1
-        return {'loss': result['RootMeanSquaredError'], 'status': hyperopt.STATUS_OK}
+        return {'loss': result['RootMeanSquaredError'], 'metrics': result, 'status': hyperopt.STATUS_OK}
 
-    objective.version = 0
     return objective
-
+hyperopt
 
 def _convert_to_gnn_architecture(space: dict, input_features: int) -> GNNArchitecture:
     layers = space['layers']
@@ -122,5 +123,7 @@ def _convert_to_gnn_architecture(space: dict, input_features: int) -> GNNArchite
 
 
 def _save_trials(trials: hyperopt.Trials, experiment_dir: Path) -> None:
+    if not experiment_dir.exists():
+        experiment_dir.mkdir()
     with open(experiment_dir / 'trials.pkl', 'wb') as out:
         pickle.dump(trials, out)
