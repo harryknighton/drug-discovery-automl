@@ -30,7 +30,6 @@ def search_hyperparameters(
     seed: int,
     num_workers: int = 0,
     precision: str = 'medium',
-    trials: hyperopt.Trials = None
 ):
     torch.set_float32_matmul_precision(precision)
     tl.seed_everything(seed, workers=True)
@@ -54,10 +53,12 @@ def search_hyperparameters(
     # Load objects needed for HyperOpt
     dataset = HTSDataset(dataset_name, DatasetUsage.DROnly)
     objective = _prepare_objective(dataset, opt_params, experiment_dir)
-    if trials is None:
-        trials = hyperopt.Trials()
+    trials = _load_trials(experiment_dir)
     start = len(trials.trials)
     rstate = np.random.default_rng(seed)
+
+    if start >= max_evals:
+        raise ValueError(f"max-evaluations should be greater than the number of trials performed so far ({start})")
 
     # Run NAS and save every `DEFAULT_SAVE_TRIALS_EVERY` evaluations
     best = None
@@ -150,6 +151,17 @@ def _convert_to_gnn_architecture(space: dict, input_features: int) -> GNNArchite
         pool_func=space['pool_func'],
         regression_layer=regression_architecture
     )
+
+
+def _load_trials(experiment_dir: Path) -> hyperopt.Trials:
+    trials_path = experiment_dir / 'trials.pkl'
+    if trials_path.exists():
+        DEFAULT_LOGGER.info(f"Loading existing trials from {trials_path}")
+        with open(trials_path, 'rb') as file:
+            return pickle.load(file)
+    else:
+        DEFAULT_LOGGER.info("Creating new trial.")
+        return hyperopt.Trials()
 
 
 def _save_trials(trials: hyperopt.Trials, experiment_dir: Path) -> None:
