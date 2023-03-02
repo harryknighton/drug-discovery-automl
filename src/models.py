@@ -145,7 +145,7 @@ def construct_gnn(arch: GNNArchitecture) -> SequentialGNN:
             pool_func = POOLING_FUNCTIONS[arch.pool_func]
             layers.append((pool_func, "x, batch -> x"))
         if normalise:
-            layers.append(BatchNorm(num_out))
+            layers.append(BatchNorm(num_out, allow_single_element=True))
         if activation is not None:
             layers.append(activation.value(inplace=True))
 
@@ -163,7 +163,7 @@ def construct_mlp(arch: ModelArchitecture) -> Sequential:
         layer = _construct_layer(layer_type, num_in, num_out)
         layers.append(layer)
         if normalise:
-            layers.append(BatchNorm(num_out))
+            layers.append(BatchNorm(num_out, allow_single_element=True))
         if activation is not None:
             layers.append(activation.value())
 
