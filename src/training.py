@@ -14,35 +14,30 @@ from torchmetrics import MetricCollection
 from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR
 from src.data import partition_dataset, HTSDataset
 from src.metrics import DEFAULT_METRICS, StandardScaler, analyse_results_distribution
-from src.models import construct_gnn, construct_mlp, GNNArchitecture
+from src.models import GNNArchitecture, GNN, BasicGNN
 from src.parameters import HyperParameters, DatasetUsage
 from src.reporting import generate_experiment_dir, generate_run_name, save_run, save_experiment_results
 
 
 class LitGNN(tl.LightningModule):
-    def __init__(self, architecture: GNNArchitecture, params: HyperParameters, metrics: MetricCollection, label_scaler: StandardScaler):
+    def __init__(self, model: GNN, params: HyperParameters, metrics: MetricCollection, label_scaler: StandardScaler):
         super().__init__()
-        self.gnn = construct_gnn(architecture)
-        self.regression_mlp = construct_mlp(architecture.regression_layer)
+        self.model = model
         self.params = params
         self.loss = MSELoss()
         self.val_metrics = metrics.clone()
         self.test_metrics = metrics.clone()
         self.test_results = None
         self.label_scaler = label_scaler
-        self.save_hyperparameters("architecture", "params")
-
-    def forward(self, x, edge_index, batch):
-        embedding = self.gnn(x, edge_index, batch)
-        return self.regression_mlp(embedding)
+        self.save_hyperparameters("params")
 
     def training_step(self, data, idx):
-        pred = self.forward(data.x, data.edge_index, data.batch)
+        pred = self.model(data.x, data.edge_index, data.batch)
         loss = self._report_loss(pred.flatten(), data.y[:, 0], 'train')  # Calculate loss on scaled labels
         return loss
 
     def validation_step(self, data, idx):
-        pred = self.forward(data.x, data.edge_index, data.batch)
+        pred = self.model(data.x, data.edge_index, data.batch)
         self._report_loss(pred.flatten(), data.y[:, 0], 'val')  # Calculate loss on scaled labels
         self.val_metrics.update(self.label_scaler.inverse_transform(pred).flatten(), data.y[:, 1])
 
@@ -51,7 +46,7 @@ class LitGNN(tl.LightningModule):
         self.val_metrics.reset()
 
     def test_step(self, data, idx):
-        pred = self.forward(data.x, data.edge_index, data.batch)
+        pred = self.model(data.x, data.edge_index, data.batch)
         self.test_metrics.update(self.label_scaler.inverse_transform(pred).flatten(), data.y[:, 1])
 
     def test_epoch_end(self, outputs):
@@ -59,7 +54,7 @@ class LitGNN(tl.LightningModule):
         self.test_metrics.reset()
 
     def configure_optimizers(self):
-        optimiser = Adam(self.parameters(), lr=self.params.lr)
+        optimiser = Adam(self.model.parameters(), lr=self.params.lr)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimiser,
             factor=DEFAULT_LR_PLATEAU_FACTOR,
@@ -120,11 +115,12 @@ def perform_run(
     run_dir = experiment_dir / (run_name if run_name else generate_run_name())
     trial_results = {}
     for version, (train_dataset, val_dataset, test_dataset) in partition_dataset(dataset, params):
+        model = BasicGNN(architecture)
         datamodule = LightningDataset(
             train_dataset, val_dataset, test_dataset,
             batch_size=params.batch_size, num_workers=params.num_workers
         )
-        result = train_model(architecture, params, datamodule, dataset.scaler, run_dir, version=version)
+        result = train_model(model, params, datamodule, dataset.scaler, run_dir, version=version)
         trial_results[version] = result
 
     save_run(trial_results, architecture, params, run_dir)
@@ -132,7 +128,7 @@ def perform_run(
 
 
 def train_model(
-    architecture: GNNArchitecture,
+    model: GNN,
     params: HyperParameters,
     datamodule: LightningDataModule,
     label_scaler: StandardScaler,
@@ -142,7 +138,7 @@ def train_model(
     save_checkpoints: bool = True,
     test_on_validation: bool = False,  # If test data is needed after further optimisation
 ):
-    model = LitGNN(architecture, params, DEFAULT_METRICS, label_scaler)
+    model = LitGNN(model, params, DEFAULT_METRICS, label_scaler)
 
     callbacks = [EarlyStopping(
         monitor='loss_val',

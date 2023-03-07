@@ -1,12 +1,16 @@
+from abc import ABC
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import Enum
+from functools import partial
 from typing import List, Optional
 
-from torch.nn import ReLU, Linear, Sequential
+import torch
+from torch import Tensor
+from torch.nn import ReLU, Linear, Sequential, ModuleList
 from torch_geometric.nn import (
     GCNConv, GINConv, GATConv, GATv2Conv,
     global_mean_pool, global_max_pool, global_add_pool,
-    Sequential as SequentialGNN, BatchNorm
+    BatchNorm
 )
 
 
@@ -30,19 +34,13 @@ class ActivationFunction(Enum):
 
 
 class PoolingFunction(Enum):
-    MEAN = auto()
-    MAX = auto()
-    ADD = auto()
-
-POOLING_FUNCTIONS = {
-    PoolingFunction.MEAN: global_mean_pool,
-    PoolingFunction.MAX: global_max_pool,
-    PoolingFunction.ADD: global_add_pool,
-}
+    MEAN = partial(global_mean_pool)
+    MAX = partial(global_max_pool)
+    ADD = partial(global_add_pool)
 
 
 @dataclass
-class ModelArchitecture:
+class ModelArchitecture(ABC):
     layer_types: List[LayerType]
     features: List[int]
     activation_funcs: List[Optional[ActivationFunction]]
@@ -73,10 +71,18 @@ class ModelArchitecture:
 
 
 @dataclass
+class RegressionArchitecture(ModelArchitecture):
+    layer_types: List[RegressionLayerType]
+
+    def __str__(self):
+        return f"RegressionArchitecture({self._base_inner_str()})"
+
+
+@dataclass
 class GNNArchitecture(ModelArchitecture):
     layer_types: List[GNNLayerType]
     pool_func: PoolingFunction
-    regression_layer: ModelArchitecture
+    regression_layer: RegressionArchitecture
 
     def __str__(self):
         return (
@@ -86,6 +92,94 @@ class GNNArchitecture(ModelArchitecture):
             f"Regression Layer: {str(self.regression_layer)}"
             ")"
         )
+
+
+class GNN(torch.nn.Module, ABC):
+    def forward(self, x: Tensor, edge_index: Tensor, batch: Tensor):
+        pass
+
+
+class GraphBlock(GNN):
+    def __init__(
+        self,
+        layer_type: GNNLayerType,
+        in_features: int,
+        out_features: int,
+        pooling: Optional[PoolingFunction],
+        normalise: bool,
+        activation: ActivationFunction
+    ) -> None:
+        super(GraphBlock, self).__init__()
+        self.conv = _construct_layer(layer_type, in_features, out_features)
+        self.pool = None if pooling is None else pooling.value
+        self.normalise = None if normalise is None else BatchNorm(out_features, allow_single_element=True)
+        self.activation = activation.value()
+
+    def forward(self, x: Tensor, edge_index: Tensor, batch: Tensor) -> Tensor:
+        x = self.conv(x, edge_index)
+        if self.pool is not None:
+            x = self.pool(x, batch)
+        if self.normalise is not None:
+            x = self.normalise(x)
+        if self.activation is not None:
+            x = self.activation(x)
+        return x
+
+
+class RegressionLayer(torch.nn.Module):
+    def __init__(self, architecture: RegressionArchitecture):
+        super(RegressionLayer, self).__init__()
+        self.layers = ModuleList()
+        for i in range(len(architecture.layer_types)):
+            layer = _construct_layer(
+                layer_type=architecture.layer_types[i],
+                num_in=architecture.features[i],
+                num_out=architecture.features[i+1]
+            )
+            self.layers.append(layer)
+            if architecture.batch_normalise[i]:
+                self.layers.append(BatchNorm(architecture.features[i+1], allow_single_element=True))
+            if architecture.activation_funcs[i] is not None:
+                self.layers.append(architecture.activation_funcs[i].value())
+
+    def forward(self, x: Tensor):
+        for layer in self.layers:
+            x = layer(x)
+        return x
+
+
+class BasicGNN(GNN):
+    def __init__(self, architecture: GNNArchitecture):
+        super(BasicGNN, self).__init__()
+        self.blocks = ModuleList()
+        num_layers = len(architecture.layer_types)
+        for i in range(num_layers):
+            pooling = architecture.pool_func if i == num_layers - 1 else None
+            block = GraphBlock(
+                layer_type=architecture.layer_types[i],
+                in_features=architecture.features[i],
+                out_features=architecture.features[i+1],
+                pooling=pooling,
+                normalise=architecture.batch_normalise[i],
+                activation=architecture.activation_funcs[i]
+            )
+            self.blocks.append(block)
+        self.regression_layer = RegressionLayer(architecture.regression_layer)
+
+    def forward(self, x: Tensor, edge_index: Tensor, batch: Tensor):
+        for block in self.blocks:
+            x = block(x, edge_index, batch)
+        return self.regression_layer(x)
+
+
+def _construct_layer(layer_type: LayerType, num_in: int, num_out: int) -> torch.nn.Module:
+    if layer_type == GNNLayerType.GIN:
+        num_hidden = 2 * num_in  # Fixed for convenience
+        mlp = Sequential(Linear(num_in, num_hidden), ReLU(), Linear(num_hidden, num_out))
+        args = (mlp,)
+    else:
+        args = (num_in, num_out)
+    return layer_type.value(*args)
 
 
 def build_uniform_gnn_architecture(
@@ -120,62 +214,10 @@ def build_uniform_regression_layer_architecture(
     hidden_features: int = 128,
     num_layers: int = 3,
     batch_normalise: bool = True
-) -> ModelArchitecture:
-    return ModelArchitecture(
+) -> RegressionArchitecture:
+    return RegressionArchitecture(
         layer_types=[RegressionLayerType.Linear] * num_layers,
         features=[input_features] + [hidden_features] * (max(num_layers - 1, 0)) + [1],
         activation_funcs=[ActivationFunction.ReLU] * (num_layers - 1) + [None],
         batch_normalise=[batch_normalise] * (num_layers - 1) + [False],
     )
-
-
-def construct_gnn(arch: GNNArchitecture) -> SequentialGNN:
-    global_inputs = "x, edge_index, batch"
-    num_layers = len(arch.layer_types)
-    layers = []
-    for i in range(num_layers):
-        layer_type = arch.layer_types[i]
-        num_in = arch.features[i]
-        num_out = arch.features[i + 1]
-        activation = arch.activation_funcs[i]
-        normalise = arch.batch_normalise[i]
-        layer = _construct_layer(layer_type, num_in, num_out)
-        layers.append((layer, "x, edge_index -> x"))
-        if i == num_layers - 1:
-            pool_func = POOLING_FUNCTIONS[arch.pool_func]
-            layers.append((pool_func, "x, batch -> x"))
-        if normalise:
-            layers.append(BatchNorm(num_out, allow_single_element=True))
-        if activation is not None:
-            layers.append(activation.value(inplace=True))
-
-    return SequentialGNN(global_inputs, layers)
-
-
-def construct_mlp(arch: ModelArchitecture) -> Sequential:
-    layers = []
-    for i in range(len(arch.layer_types)):
-        layer_type = arch.layer_types[i]
-        num_in = arch.features[i]
-        num_out = arch.features[i + 1]
-        activation = arch.activation_funcs[i]
-        normalise = arch.batch_normalise[i]
-        layer = _construct_layer(layer_type, num_in, num_out)
-        layers.append(layer)
-        if normalise:
-            layers.append(BatchNorm(num_out, allow_single_element=True))
-        if activation is not None:
-            layers.append(activation.value())
-
-    return Sequential(*layers)
-
-
-def _construct_layer(layer_type, num_in, num_out):
-    if layer_type == GNNLayerType.GIN:
-        # TODO: Add customisable layer architectures
-        num_hidden = 2 * num_in
-        mlp = Sequential(Linear(num_in, num_hidden), ReLU(), Linear(num_hidden, num_out))
-        args = (mlp,)
-    else:
-        args = (num_in, num_out)
-    return layer_type.value(*args)

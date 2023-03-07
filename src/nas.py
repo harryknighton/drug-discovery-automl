@@ -4,18 +4,17 @@ from pathlib import Path
 
 import hyperopt
 import numpy as np
+import pytorch_lightning as tl
 import torch
 from hyperopt import hp
-from hyperopt.early_stop import no_progress_loss
 from torch_geometric.data import LightningDataset
-import pytorch_lightning as tl
 
 from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_BATCH_SIZE, DEFAULT_LR, \
     DEFAULT_EARLY_STOP_PATIENCE, DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT, \
     DEFAULT_SAVE_TRIALS_EVERY
 from src.data import HTSDataset, get_num_input_features, split_dataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
-    build_uniform_regression_layer_architecture
+    build_uniform_regression_layer_architecture, BasicGNN
 from src.parameters import DatasetUsage, HyperParameters, BasicSplit
 from src.reporting import generate_experiment_dir
 from src.training import train_model
@@ -117,10 +116,11 @@ def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_
         if not hasattr(objective, 'version'):
             objective.version = 0
         architecture = _convert_to_gnn_architecture(x, input_features)
+        model = BasicGNN(architecture)
         DEFAULT_LOGGER.debug("Evaluating architecture " + str(architecture))
         try:
             result = train_model(
-                architecture,
+                model,
                 params,
                 datamodule,
                 dataset.scaler,
