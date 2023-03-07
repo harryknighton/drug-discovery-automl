@@ -7,20 +7,20 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import MSELoss
 from torch.optim import Adam
 import pytorch_lightning as tl
-from torch_geometric.data import LightningDataset
+from torch_geometric.data import LightningDataset, Dataset
 from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
 from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR
-from src.data import partition_dataset, HTSDataset
-from src.metrics import DEFAULT_METRICS, StandardScaler, analyse_results_distribution
+from src.data import partition_dataset, get_dataset, fit_label_scaler, Scaler
+from src.metrics import DEFAULT_METRICS, analyse_results_distribution
 from src.models import GNNArchitecture, GNN, BasicGNN
 from src.parameters import HyperParameters, DatasetUsage
 from src.reporting import generate_experiment_dir, generate_run_name, save_run, save_experiment_results
 
 
 class LitGNN(tl.LightningModule):
-    def __init__(self, model: GNN, params: HyperParameters, metrics: MetricCollection, label_scaler: StandardScaler):
+    def __init__(self, model: GNN, params: HyperParameters, metrics: MetricCollection, label_scaler: Scaler):
         super().__init__()
         self.model = model
         self.params = params
@@ -86,9 +86,10 @@ def run_experiment(
     experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, params.dataset_usage, experiment_name)
     DEFAULT_LOGGER.info(f"Running experiment {experiment_name} at {experiment_dir}")
     DEFAULT_LOGGER.info(f"Loading dataset {dataset_name} containing {params.dataset_usage.name}")
-    dataset = HTSDataset(dataset_name, params.dataset_usage)
+    dataset = get_dataset(dataset_name, dataset_usage=params.dataset_usage)  # TODO: Fix dataset_usage for QM datasets
+    label_scaler = fit_label_scaler(dataset, params.label_scaler)
     if params.dataset_usage == DatasetUsage.DRWithSDReadouts:
-        sd_model = LitGNN.load_from_checkpoint(sd_ckpt_path, label_scaler=dataset.scaler, metrics=DEFAULT_METRICS)
+        sd_model = LitGNN.load_from_checkpoint(sd_ckpt_path, label_scaler=label_scaler, metrics=DEFAULT_METRICS)
         dataset.augment_dataset_with_sd_readouts(sd_model)
     results = {}
     for architecture in architectures:
@@ -97,7 +98,7 @@ def run_experiment(
         for seed in random_seeds:
             tl.seed_everything(seed, workers=True)
             params.random_seed = seed
-            run_result = perform_run(dataset, architecture, params, experiment_dir)
+            run_result = perform_run(dataset, label_scaler, architecture, params, experiment_dir)
             trials_results.extend(list(run_result.values()))
         architecture_results = analyse_results_distribution(trials_results)
         results[str(architecture)] = architecture_results
@@ -105,7 +106,8 @@ def run_experiment(
 
 
 def perform_run(
-    dataset: HTSDataset,
+    dataset: Dataset,
+    label_scaler: Scaler,
     architecture: GNNArchitecture,
     params: HyperParameters,
     experiment_dir: Path,
@@ -120,7 +122,7 @@ def perform_run(
             train_dataset, val_dataset, test_dataset,
             batch_size=params.batch_size, num_workers=params.num_workers
         )
-        result = train_model(model, params, datamodule, dataset.scaler, run_dir, version=version)
+        result = train_model(model, params, datamodule, label_scaler, run_dir, version=version)
         trial_results[version] = result
 
     save_run(trial_results, architecture, params, run_dir)
@@ -131,7 +133,7 @@ def train_model(
     model: GNN,
     params: HyperParameters,
     datamodule: LightningDataModule,
-    label_scaler: StandardScaler,
+    label_scaler: Scaler,
     run_dir: Path,
     version: Optional[int] = None,
     save_logs: bool = True,

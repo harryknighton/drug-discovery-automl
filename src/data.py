@@ -1,15 +1,16 @@
+from abc import ABC
 from pathlib import Path
-from typing import List
+from typing import List, Any, Type
 
 import numpy as np
 import pandas as pd
 import torch
+import torch_geometric
 from sklearn import model_selection
 from torch import Tensor
-from torch_geometric.data import Data, InMemoryDataset
+from torch_geometric.data import Data, InMemoryDataset, Dataset
 
 from src.config import DATAFILE_NAME, RANDOM_SEEDS, DATA_DIR, DEFAULT_LOGGER
-from src.metrics import StandardScaler
 from src.parameters import DatasetUsage, HyperParameters, MFPCBA, BasicSplit, KFolds
 
 _MAX_ATOMIC_NUM = 80
@@ -17,15 +18,11 @@ _N_FEATURES = _MAX_ATOMIC_NUM + 33
 
 
 class HTSDataset(InMemoryDataset):
-    def __init__(self, name: str, dataset_usage: DatasetUsage):
-        self.name = name
+    def __init__(self, root: Path, dataset_usage: DatasetUsage):
+        super().__init__(str(root))
         self.dataset_usage = dataset_usage
         self.sd_or_dr = 'SD' if self.dataset_usage == DatasetUsage.SDOnly else 'DR'
-        root = str(DATA_DIR / name)
-        super().__init__(root)
         self.data, self.slices = torch.load(self.processed_paths[0])
-        self.scaler = StandardScaler()
-        self._scale_labels()
 
     def __get__(self, idx):
         return self.get(idx)
@@ -38,6 +35,9 @@ class HTSDataset(InMemoryDataset):
     def processed_file_names(self):
         return [f'processed_{self.sd_or_dr.lower()}_data.pt']
 
+    def download(self):
+        pass
+
     def process(self):
         DEFAULT_LOGGER.debug(f"Processing dataset {self.name} at {self.root}")
         df = _read_data(Path(self.root) / self.raw_file_names[0])
@@ -46,11 +46,6 @@ class HTSDataset(InMemoryDataset):
         data_list = _process_data(df, self.sd_or_dr)
         data, slices = self.collate(data_list)
         torch.save((data, slices), self.processed_paths[0])
-
-    def _scale_labels(self):
-        DEFAULT_LOGGER.debug(f"Scaling dataset with scaler {self.scaler}")
-        scaled_labels = self.scaler.fit_transform(self.data.y.reshape(-1, 1))
-        self.data.y = torch.stack((scaled_labels.flatten(), self.data.y), dim=1)
 
     def augment_dataset_with_sd_readouts(self, model: torch.nn.Module):
         """Predict SD labels using `model` and add them to the dataset
@@ -103,6 +98,18 @@ def _set_atomic_num(num):
     PARAMS.ATOM_FDIM = sum(len(choices) + 1 for choices in PARAMS.ATOM_FEATURES.values()) + 2
 
 
+def get_dataset(dataset_name: str, **kwargs: Any) -> Dataset:
+    root = DATA_DIR / dataset_name
+    if dataset_name.startswith('AID'):
+        return HTSDataset(root, **kwargs)
+    elif dataset_name == 'QM7b':
+        return torch_geometric.datasets.QM7b(root, **kwargs)
+    elif dataset_name == 'QM9':
+        return torch_geometric.datasets.QM9(root, **kwargs)
+    else:
+        raise ValueError(f"Dataset {dataset_name} not recognised")
+
+
 def partition_dataset(dataset, params: HyperParameters):
     if isinstance(params.dataset_split, MFPCBA):
         for seed in RANDOM_SEEDS[dataset.name]:
@@ -153,3 +160,82 @@ def k_folds(dataset: HTSDataset, k: int):
 
 def get_num_input_features(dataset_usage: DatasetUsage):
     return _N_FEATURES + (1 if dataset_usage == DatasetUsage.DRWithSDReadouts else 0)
+
+
+class Scaler(torch.nn.Module, ABC):
+    def fit(self, values: Tensor) -> Tensor:
+        raise NotImplementedError()
+
+    def transform(self, values: Tensor) -> Tensor:
+        raise NotImplementedError()
+
+    def inverse_transform(self, values: Tensor) -> Tensor:
+        raise NotImplementedError()
+
+    def fit_transform(self, values: Tensor) -> Tensor:
+        self.fit(values)
+        return self.transform(values)
+
+    @staticmethod
+    def _validate_input(values) -> None:
+        if values.dim() != 2:
+            raise ValueError("Values must be shape (n_samples, n_features) but got " + str(values.shape))
+
+
+class StandardScaler(Scaler):
+    def __init__(self, epsilon: float = 1e-7):
+        """Adapted from https://gist.github.com/farahmand-m/8a416f33a27d73a149f92ce4708beb40"""
+        super().__init__()
+        self.register_buffer('means', Tensor(), persistent=False)
+        self.register_buffer('stds', Tensor(), persistent=False)
+        self.register_buffer('epsilon', torch.tensor([epsilon]), persistent=False)
+
+    def fit(self, values: Tensor):
+        self._validate_input(values)
+        if values.shape[0] <= 1:
+            raise ValueError("Must have more than one sample to fit to, got " + str(values.shape[0]))
+        self.means = torch.mean(values, dim=0)
+        self.stds = torch.std(values, dim=0)
+        assert len(self.means) == len(self.stds) == values.shape[-1]
+
+    def transform(self, values: Tensor):
+        self._validate_input(values)
+        return (values - self.means) / (self.stds + self.epsilon)
+
+    def inverse_transform(self, values):
+        self._validate_input(values)
+        return values * (self.stds + self.epsilon) + self.means
+
+
+class MinMaxScaler(Scaler):
+    def __init__(self, scaled_min: int = 0, scaled_max: int = 1, epsilon: float = 1e-7):
+        super().__init__()
+        self.register_buffer('scaled_min', torch.tensor([scaled_min]), persistent=False)
+        self.register_buffer('scaled_max', torch.tensor([scaled_max]), persistent=False)
+        self.register_buffer('mins', Tensor(), persistent=False)
+        self.register_buffer('maxs', Tensor(), persistent=False)
+        self.register_buffer('epsilon', torch.tensor([epsilon]), persistent=False)
+
+    def fit(self, values: Tensor):
+        self._validate_input(values)
+        if values.shape[0] <= 1:
+            raise ValueError("Must have more than one sample to fit to, got " + str(values.shape[0]))
+        self.mins = torch.min(values, dim=0).values
+        self.maxs = torch.max(values, dim=0).values
+        assert len(self.mins) == len(self.maxs) == values.shape[-1]
+
+    def transform(self, values: Tensor):
+        self._validate_input(values)
+        standard_scale = (values - self.mins) / (self.maxs - self.mins + self.epsilon)
+        return standard_scale * (self.scaled_max - self.scaled_min) + self.scaled_min
+
+    def inverse_transform(self, values):
+        self._validate_input(values)
+        standard_scale = (values - self.scaled_min) / (self.scaled_max - self.scaled_min)
+        return standard_scale * (self.maxs - self.mins + self.epsilon) + self.mins
+
+
+def fit_label_scaler(dataset: Dataset, scaler_type: Type[Scaler]) -> Scaler:
+    scaler = scaler_type()
+    scaler.fit(dataset.y)
+    return scaler

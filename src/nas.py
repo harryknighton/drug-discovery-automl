@@ -7,12 +7,13 @@ import numpy as np
 import pytorch_lightning as tl
 import torch
 from hyperopt import hp
-from torch_geometric.data import LightningDataset
+from torch_geometric.data import LightningDataset, Dataset
 
 from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_BATCH_SIZE, DEFAULT_LR, \
     DEFAULT_EARLY_STOP_PATIENCE, DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT, \
     DEFAULT_SAVE_TRIALS_EVERY
-from src.data import HTSDataset, get_num_input_features, split_dataset
+from src.data import get_num_input_features, split_dataset, get_dataset, fit_label_scaler, Scaler, \
+    StandardScaler
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture, BasicGNN
 from src.parameters import DatasetUsage, HyperParameters, BasicSplit
@@ -37,6 +38,7 @@ def search_hyperparameters(
         random_seed=seed,
         dataset_usage=dataset_usage,
         dataset_split=BasicSplit(test_split=DEFAULT_TEST_SPLIT, train_val_split=DEFAULT_TRAIN_VAL_SPLIT),
+        label_scaler=StandardScaler,
         batch_size=DEFAULT_BATCH_SIZE,
         early_stop_patience=DEFAULT_EARLY_STOP_PATIENCE,
         early_stop_min_delta=DEFAULT_EARLY_STOP_DELTA,
@@ -50,8 +52,9 @@ def search_hyperparameters(
     DEFAULT_LOGGER.info(f"Running NAS experiment {experiment_name} on {dataset_usage}at {experiment_dir}")
 
     # Load objects needed for HyperOpt
-    dataset = HTSDataset(dataset_name, DatasetUsage.DROnly)
-    objective = _prepare_objective(dataset, opt_params, experiment_dir)
+    dataset = get_dataset(dataset_name, dataset_usage=dataset_usage)
+    label_scaler = fit_label_scaler(dataset, opt_params.label_scaler)
+    objective = _prepare_objective(dataset, label_scaler, opt_params, experiment_dir)
     trials = _load_trials(experiment_dir)
     start = len(trials.trials)
     rstate = np.random.default_rng(seed)
@@ -102,7 +105,7 @@ def construct_search_space(name: str):
         }
 
 
-def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_dir: Path):
+def _prepare_objective(dataset: Dataset, label_scaler: Scaler, params: HyperParameters, experiment_dir: Path):
     assert isinstance(params.dataset_split, BasicSplit)
     test_dataset, training_dataset = split_dataset(dataset, params.dataset_split.test_split)
     train_dataset, val_dataset = split_dataset(training_dataset, params.dataset_split.train_val_split)
@@ -120,11 +123,11 @@ def _prepare_objective(dataset: HTSDataset, params: HyperParameters, experiment_
         DEFAULT_LOGGER.debug("Evaluating architecture " + str(architecture))
         try:
             result = train_model(
-                model,
-                params,
-                datamodule,
-                dataset.scaler,
-                experiment_dir,
+                model=model,
+                params=params,
+                datamodule=datamodule,
+                label_scaler=label_scaler,
+                run_dir=experiment_dir,
                 version=objective.version,
                 save_logs=False,
                 save_checkpoints=False,

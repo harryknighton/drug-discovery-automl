@@ -1,7 +1,9 @@
 from abc import ABC
 from dataclasses import dataclass
 from enum import auto, Enum
-from typing import List
+from typing import List, Type
+
+from src.data import Scaler
 
 
 class DatasetUsage(Enum):
@@ -36,6 +38,7 @@ class HyperParameters:
     random_seed: int
     dataset_usage: DatasetUsage
     dataset_split: DatasetSplit
+    label_scaler: Type[Scaler]
     limit_batches: float
     batch_size: int
     early_stop_patience: int
