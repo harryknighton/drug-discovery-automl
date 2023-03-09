@@ -76,7 +76,7 @@ def _experiment(args):
         dataset.augment_dataset_with_sd_readouts(sd_model)
 
     params = HyperParameters(
-        random_seed=args['seeds'],
+        random_seeds=args['seeds'],
         dataset_split=dataset_split,
         limit_batches=args['limit_batches'],
         batch_size=DEFAULT_BATCH_SIZE,
@@ -114,7 +114,6 @@ def _experiment(args):
         label_scaler=label_scaler,
         architectures=architectures,
         params=params,
-        random_seeds=args['seeds'],
         precision=args['precision'],
         dataset_usage=dataset_usage,
     )

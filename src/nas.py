@@ -35,7 +35,7 @@ def search_hyperparameters(
     tl.seed_everything(seed, workers=True)
     name = 'hyperopt_' + experiment_name
     opt_params = HyperParameters(
-        random_seed=seed,
+        random_seeds=[seed],
         dataset_split=BasicSplit(test_split=DEFAULT_TEST_SPLIT, train_val_split=DEFAULT_TRAIN_VAL_SPLIT),
         label_scaler=StandardScaler,
         batch_size=DEFAULT_BATCH_SIZE,

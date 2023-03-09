@@ -21,7 +21,7 @@ from src.reporting import generate_experiment_dir, generate_run_name, save_run, 
 
 @dataclass
 class HyperParameters:
-    random_seed: int
+    random_seeds: List[int]
     dataset_split: DatasetSplit
     label_scaler: Type[Scaler]
     limit_batches: float
@@ -95,7 +95,6 @@ def run_experiment(
         label_scaler: Scaler,
         architectures: List[GNNArchitecture],
         params: HyperParameters,
-        random_seeds: List[int],
         precision: str,
         dataset_usage: Optional[DatasetUsage] = None,
 ):
@@ -105,14 +104,8 @@ def run_experiment(
     results = {}
     for architecture in architectures:
         DEFAULT_LOGGER.debug(f"Running experiment on architecture {architecture}")
-        trials_results = []
-        for seed in random_seeds:
-            tl.seed_everything(seed, workers=True)
-            params.random_seed = seed
-            run_result = perform_run(dataset, label_scaler, architecture, params, experiment_dir)
-            trials_results.extend(list(run_result.values()))
-        architecture_results = analyse_results_distribution(trials_results)
-        results[str(architecture)] = architecture_results
+        run_results = perform_run(dataset, label_scaler, architecture, params, experiment_dir)
+        results[str(architecture)] = analyse_results_distribution(run_results)
     save_experiment_results(results, experiment_dir)
 
 
@@ -126,19 +119,22 @@ def perform_run(
 ):
     """Perform multiple runs using k-fold cross validation and return the average results"""
     run_dir = experiment_dir / (run_name if run_name else generate_run_name())
-    trial_results = {}
-    partition_generator = partition_dataset(dataset, params.dataset_split, params.random_seed)
-    for version, (train_dataset, val_dataset, test_dataset) in partition_generator:
-        model = BasicGNN(architecture)
-        datamodule = LightningDataset(
-            train_dataset, val_dataset, test_dataset,
-            batch_size=params.batch_size, num_workers=params.num_workers
-        )
-        result = train_model(model, params, datamodule, label_scaler, run_dir, version=version)
-        trial_results[version] = result
+    run_results = {}
+    for seed in params.random_seeds:
+        tl.seed_everything(seed, workers=True)
+        partition_generator = partition_dataset(dataset, params.dataset_split, seed)
+        for data_version, (train_dataset, val_dataset, test_dataset) in partition_generator:
+            version = f'S{seed}_D{data_version}'
+            model = BasicGNN(architecture)
+            datamodule = LightningDataset(
+                train_dataset, val_dataset, test_dataset,
+                batch_size=params.batch_size, num_workers=params.num_workers
+            )
+            result = train_model(model, params, datamodule, label_scaler, run_dir, version=version)
+            run_results[version] = result
 
-    save_run(trial_results, architecture, params, run_dir)
-    return trial_results
+    save_run(run_results, architecture, params, run_dir)
+    return run_results
 
 
 def train_model(
@@ -147,7 +143,7 @@ def train_model(
     datamodule: LightningDataModule,
     label_scaler: Scaler,
     run_dir: Path,
-    version: Optional[int] = None,
+    version: Optional[int | str] = None,
     save_logs: bool = True,
     save_checkpoints: bool = True,
     test_on_validation: bool = False,  # If test data is needed after further optimisation

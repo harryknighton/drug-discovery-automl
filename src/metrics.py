@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any
 
 import numpy as np
 import torch
@@ -47,10 +47,14 @@ DEFAULT_METRICS = MetricCollection([
 ])
 
 
-def analyse_results_distribution(results: List[dict[str, float]]) -> dict[str, dict]:
-    """Calculate the distribution of the results of all trials"""
-    assert results is not None and len(results) > 0
-    stacked_metrics = {metric: np.array([float(result[metric]) for result in results]) for metric in results[0]}
+def analyse_results_distribution(results: dict[str | int, dict[str, float]]) -> dict[str, dict]:
+    """Calculate the distribution of results over all random seeds and data splits for a run"""
+    assert len(results) > 0
+    run_metrics = list(results.values())
+    stacked_metrics = {
+        metric: np.array([float(metrics[metric]) for metrics in run_metrics])
+        for metric in run_metrics[0]
+    }
     metrics = {}
     for metric, values in stacked_metrics.items():
         percentiles = np.percentile(values, [0, 25, 50, 75, 100])
