@@ -13,10 +13,11 @@ from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
 from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR
-from src.data import partition_dataset, Scaler, DatasetSplit, DatasetUsage, NamedLabelledDataset
+from src.data import partition_dataset, Scaler, DatasetSplit, NamedLabelledDataset
 from src.metrics import DEFAULT_METRICS, analyse_results_distribution
 from src.models import GNNArchitecture, GNN, BasicGNN
-from src.reporting import generate_experiment_dir, generate_run_name, save_run, save_experiment_results
+from src.reporting import generate_experiment_dir, generate_run_name, save_experiment_results, \
+    save_run_results
 
 
 @dataclass
@@ -132,7 +133,7 @@ def perform_run(
             result = train_model(model, params, datamodule, label_scaler, run_dir, version=version)
             run_results[version] = result
 
-    save_run(run_results, architecture, params, run_dir)
+    save_run_results(run_results, run_dir)
     return run_results
 
 

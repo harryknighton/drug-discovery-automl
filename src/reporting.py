@@ -35,29 +35,11 @@ def save_experiment_results(results, experiment_dir):
     df.to_csv(experiment_dir / 'results.csv', sep=';')  # Seperator other than comma due to architecture representation
 
 
-def save_run(trial_results, architecture, params, run_dir):
-    _save_trial_results(trial_results, run_dir)
-    _save_architecture(architecture, run_dir)
-    _save_hyper_parameters(params, run_dir)
-
-
-def _save_trial_results(results, run_dir):
+def save_run_results(results, run_dir):
     filepath = run_dir / 'results.json'
     trial_results = {version: {k: float(v) for k, v in trial.items()} for version, trial in results.items()}
     with open(filepath, 'w') as out:
         json.dump(trial_results, out, indent=2)
-
-
-def _save_hyper_parameters(parameters, run_dir):
-    filepath = run_dir / 'parameters.pkl'
-    with open(filepath, 'wb') as out:
-        pickle.dump(parameters, out)
-
-
-def _save_architecture(architecture, run_dir):
-    filepath = run_dir / 'architecture.pkl'
-    with open(filepath, 'wb') as out:
-        pickle.dump(architecture, out)
 
 
 def load_architecture(run_dir):
