@@ -12,7 +12,7 @@ from sklearn import model_selection
 from torch import Tensor
 from torch_geometric.data import Data, InMemoryDataset, Dataset
 
-from src.config import DATAFILE_NAME, MFPCBA_SEEDS, DATA_DIR, DEFAULT_LOGGER
+from src.config import DATAFILE_NAME, DATA_DIR, DEFAULT_LOGGER, MF_PCBA_SEEDS
 
 _MAX_ATOMIC_NUM = 80
 _N_FEATURES = _MAX_ATOMIC_NUM + 33
@@ -139,7 +139,7 @@ def get_dataset(dataset_name: str, dataset_usage: Optional[DatasetUsage] = None,
 
 def partition_dataset(dataset: Dataset, dataset_split: DatasetSplit, random_seed: Optional[int] = 0):
     if isinstance(dataset_split, MFPCBA):
-        for seed in MFPCBA_SEEDS[dataset.name]:
+        for seed in MF_PCBA_SEEDS[dataset.name]:
             yield seed, mf_pcba_split(dataset, seed)
     elif isinstance(dataset_split, BasicSplit):
         np.random.seed(random_seed)
@@ -256,6 +256,13 @@ class MinMaxScaler(Scaler):
         self._validate_input(values)
         standard_scale = (values - self.scaled_min) / (self.scaled_max - self.scaled_min)
         return standard_scale * (self.maxs - self.mins + self.epsilon) + self.mins
+
+
+class NamedLabelledDataset:
+    def __init__(self, name: str, dataset: Dataset, label_scaler: Scaler):
+        self.name = name
+        self.dataset = dataset
+        self.label_scaler = label_scaler
 
 
 def fit_label_scaler(dataset: Dataset, scaler_type: Type[Scaler]) -> Scaler:

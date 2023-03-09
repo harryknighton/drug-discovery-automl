@@ -1,7 +1,6 @@
 import gc
 import pickle
 from pathlib import Path
-from typing import Optional
 
 import hyperopt
 import numpy as np
@@ -10,11 +9,8 @@ import torch
 from hyperopt import hp
 from torch_geometric.data import LightningDataset, Dataset
 
-from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_BATCH_SIZE, DEFAULT_LR, \
-    DEFAULT_EARLY_STOP_PATIENCE, DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT, \
-    DEFAULT_SAVE_TRIALS_EVERY
-from src.data import split_dataset, get_dataset, fit_label_scaler, Scaler, \
-    StandardScaler, DatasetUsage, BasicSplit
+from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_SAVE_TRIALS_EVERY
+from src.data import split_dataset, Scaler, BasicSplit, NamedLabelledDataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture, BasicGNN
 from src.reporting import generate_experiment_dir
@@ -22,41 +18,25 @@ from src.training import train_model, HyperParameters
 
 
 def search_hyperparameters(
-    dataset_name: str,
+    dataset: NamedLabelledDataset,
+    params: HyperParameters,
     search_space: dict,
     max_evals: int,
     experiment_name: str,
-    seed: int,
-    dataset_usage: Optional[DatasetUsage] = None,
-    num_workers: int = 0,
     precision: str = 'medium',
 ):
     torch.set_float32_matmul_precision(precision)
-    tl.seed_everything(seed, workers=True)
+    tl.seed_everything(params.random_seeds[0], workers=True)
     name = 'hyperopt_' + experiment_name
-    opt_params = HyperParameters(
-        random_seeds=[seed],
-        dataset_split=BasicSplit(test_split=DEFAULT_TEST_SPLIT, train_val_split=DEFAULT_TRAIN_VAL_SPLIT),
-        label_scaler=StandardScaler,
-        batch_size=DEFAULT_BATCH_SIZE,
-        early_stop_patience=DEFAULT_EARLY_STOP_PATIENCE,
-        early_stop_min_delta=DEFAULT_EARLY_STOP_DELTA,
-        lr=DEFAULT_LR,
-        max_epochs=100,
-        num_workers=num_workers,
-        limit_batches=1.0
-    )
 
     # Load objects needed for HyperOpt
-    dataset = get_dataset(dataset_name, dataset_usage=dataset_usage)
-    label_scaler = fit_label_scaler(dataset, opt_params.label_scaler)
-    experiment_dir = LOG_DIR / generate_experiment_dir(dataset, dataset_usage, name)
-    objective = _prepare_objective(dataset, label_scaler, opt_params, experiment_dir)
+    experiment_dir = LOG_DIR / generate_experiment_dir(dataset.dataset, dataset.dataset.dataset_usage, name)
+    objective = _prepare_objective(dataset.dataset, dataset.label_scaler, params, experiment_dir)
     trials = _load_trials(experiment_dir)
     start = len(trials.trials)
-    rstate = np.random.default_rng(seed)
+    rstate = np.random.default_rng(params.random_seeds[0])
 
-    DEFAULT_LOGGER.info(f"Running NAS experiment {experiment_name} on {dataset_usage} at {experiment_dir}")
+    DEFAULT_LOGGER.info(f"Running NAS experiment {experiment_name} at {experiment_dir}")
 
     if start >= max_evals:
         raise ValueError(f"max-evaluations should be greater than the number of trials performed so far ({start})")
@@ -80,7 +60,7 @@ def search_hyperparameters(
 
     assert best is not None
     best_architecture = _convert_to_gnn_architecture(
-        hyperopt.space_eval(search_space, best), input_features=dataset.num_features
+        hyperopt.space_eval(search_space, best), input_features=dataset.dataset.num_features
     )
     DEFAULT_LOGGER.info(f"Best results: {trials.best_trial['result']['metrics']}")
     DEFAULT_LOGGER.info(f"Best architecture: {best_architecture}")

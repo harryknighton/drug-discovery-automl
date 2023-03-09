@@ -4,10 +4,10 @@ import timeit
 from pathlib import Path
 from typing import Optional, Type
 
-from src.config import MFPCBA_SEEDS, LOG_DIR, DEFAULT_BATCH_SIZE, DEFAULT_LR, DEFAULT_EARLY_STOP_PATIENCE, \
-    DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT, DEFAULT_LABEL_SCALER
+from src.config import LOG_DIR, DEFAULT_BATCH_SIZE, DEFAULT_LR, DEFAULT_EARLY_STOP_PATIENCE, \
+    DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT, DEFAULT_LABEL_SCALER, MF_PCBA_SEEDS
 from src.data import DatasetUsage, MFPCBA, KFolds, BasicSplit, StandardScaler, MinMaxScaler, fit_label_scaler, \
-    get_dataset, Scaler
+    get_dataset, Scaler, NamedLabelledDataset
 from src.metrics import DEFAULT_METRICS
 from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction
 from src.nas import search_hyperparameters, construct_search_space
@@ -69,11 +69,12 @@ def _experiment(args):
     pool_funcs = _resolve_pooling_function(args)
     label_scaler_type = _resolve_label_scaler(args)
 
-    dataset = get_dataset(args['dataset'], dataset_usage=dataset_usage)
-    label_scaler = fit_label_scaler(dataset, label_scaler_type)
+    raw_dataset = get_dataset(args['dataset'], dataset_usage=dataset_usage)
+    label_scaler = fit_label_scaler(raw_dataset, label_scaler_type)
     if dataset_usage == DatasetUsage.DRWithSDReadouts:
         sd_model = LitGNN.load_from_checkpoint(sd_ckpt_path, label_scaler=label_scaler, metrics=DEFAULT_METRICS)
-        dataset.augment_dataset_with_sd_readouts(sd_model)
+        raw_dataset.augment_dataset_with_sd_readouts(sd_model)
+    dataset = NamedLabelledDataset(args['dataset'], raw_dataset, label_scaler)
 
     params = HyperParameters(
         random_seeds=args['seeds'],
@@ -97,7 +98,7 @@ def _experiment(args):
                         build_uniform_gnn_architecture(
                             layer_type=layer_type,
                             num_layers=num_layers,
-                            input_features=dataset.num_node_features,
+                            input_features=dataset.dataset.num_node_features,
                             hidden_features=features,
                             pool_func=pool_func,
                             batch_normalise=True,
@@ -125,14 +126,31 @@ def _optimise(args: dict):
     logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
     search_space = construct_search_space(args['search_space'])
     dataset_usage = _resolve_dataset_usage(args)
+    label_scaler_type = _resolve_label_scaler(args)
+
+    raw_dataset = get_dataset(args['dataset'], dataset_usage=dataset_usage)
+    label_scaler = fit_label_scaler(raw_dataset, label_scaler_type)
+    dataset = NamedLabelledDataset(args['dataset'], raw_dataset, label_scaler)
+
+    params = HyperParameters(
+        random_seeds=[args['seed']],
+        dataset_split=BasicSplit(test_split=DEFAULT_TEST_SPLIT, train_val_split=DEFAULT_TRAIN_VAL_SPLIT),
+        label_scaler=label_scaler_type,
+        batch_size=DEFAULT_BATCH_SIZE,
+        early_stop_patience=DEFAULT_EARLY_STOP_PATIENCE,
+        early_stop_min_delta=DEFAULT_EARLY_STOP_DELTA,
+        lr=DEFAULT_LR,
+        max_epochs=100,
+        num_workers=args['num_workers'],
+        limit_batches=1.0
+    )
+
     search_hyperparameters(
-        dataset_name=args['dataset'],
-        dataset_usage=dataset_usage,
+        dataset=dataset,
+        params=params,
         search_space=search_space,
         max_evals=args['max_evaluations'],
         experiment_name=args['name'],
-        seed=args['seed'],
-        num_workers=args['num_workers'],
         precision=args['precision']
     )
 
@@ -147,7 +165,7 @@ def _validate_experiment_args(args: dict):
     assert args['limit_batches'] > 0
     if args['dataset'].startswith('AID'):
         if args['use_mf_pcba_splits']:
-            assert args['dataset'] in MFPCBA_SEEDS.keys()
+            assert args['dataset'] in MF_PCBA_SEEDS.keys()
             assert not args['k_folds']
         assert args['dataset_usage'] is not None
     else:
@@ -156,7 +174,7 @@ def _validate_experiment_args(args: dict):
 
 def _resolve_dataset_split(args):
     if args['use_mf_pcba_splits']:
-        dataset_split = MFPCBA(seeds=MFPCBA_SEEDS[args['dataset']])
+        dataset_split = MFPCBA(seeds=MF_PCBA_SEEDS[args['dataset']])
     elif args['k_folds']:
         dataset_split = KFolds(k=args['k_folds'], test_split=DEFAULT_TEST_SPLIT)
     else:

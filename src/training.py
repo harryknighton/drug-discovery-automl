@@ -8,12 +8,12 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from torch.nn import MSELoss
 from torch.optim import Adam
 import pytorch_lightning as tl
-from torch_geometric.data import LightningDataset, Dataset
+from torch_geometric.data import LightningDataset
 from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
 from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR
-from src.data import partition_dataset, Scaler, DatasetSplit, DatasetUsage
+from src.data import partition_dataset, Scaler, DatasetSplit, DatasetUsage, NamedLabelledDataset
 from src.metrics import DEFAULT_METRICS, analyse_results_distribution
 from src.models import GNNArchitecture, GNN, BasicGNN
 from src.reporting import generate_experiment_dir, generate_run_name, save_run, save_experiment_results
@@ -91,7 +91,7 @@ class LitGNN(tl.LightningModule):
 
 def run_experiment(
         experiment_name: str,
-        dataset: Dataset,
+        dataset: NamedLabelledDataset,
         label_scaler: Scaler,
         architectures: List[GNNArchitecture],
         params: HyperParameters,
@@ -100,7 +100,7 @@ def run_experiment(
 ):
     """Perform a series of runs of different architectures and save the results"""
     torch.set_float32_matmul_precision(precision)
-    experiment_dir = LOG_DIR / generate_experiment_dir(dataset, dataset_usage, experiment_name)
+    experiment_dir = LOG_DIR / generate_experiment_dir(dataset.dataset, dataset_usage, experiment_name)
     results = {}
     for architecture in architectures:
         DEFAULT_LOGGER.debug(f"Running experiment on architecture {architecture}")
@@ -110,7 +110,7 @@ def run_experiment(
 
 
 def perform_run(
-    dataset: Dataset,
+    dataset: NamedLabelledDataset,
     label_scaler: Scaler,
     architecture: GNNArchitecture,
     params: HyperParameters,
@@ -122,7 +122,7 @@ def perform_run(
     run_results = {}
     for seed in params.random_seeds:
         tl.seed_everything(seed, workers=True)
-        partition_generator = partition_dataset(dataset, params.dataset_split, seed)
+        partition_generator = partition_dataset(dataset.dataset, params.dataset_split, seed)
         for data_version, (train_dataset, val_dataset, test_dataset) in partition_generator:
             version = f'S{seed}_D{data_version}'
             model = BasicGNN(architecture)
