@@ -181,7 +181,9 @@ def _resolve_dataset_split(args):
     return dataset_split
 
 
-def _resolve_dataset_usage(args):
+def _resolve_dataset_usage(args) -> Optional[DatasetUsage]:
+    if args['dataset_usage'] is None:
+        return None
     usage = DatasetUsage[args['dataset_usage']]
     if usage == DatasetUsage.DRWithSDReadouts and not args['sd_ckpt']:
         raise ValueError("If using SD readouts must specify sd-ckpt")
