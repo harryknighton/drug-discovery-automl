@@ -12,7 +12,7 @@ from sklearn import model_selection
 from torch import Tensor
 from torch_geometric.data import Data, InMemoryDataset, Dataset
 
-from src.config import DATAFILE_NAME, RANDOM_SEEDS, DATA_DIR, DEFAULT_LOGGER
+from src.config import DATAFILE_NAME, MFPCBA_SEEDS, DATA_DIR, DEFAULT_LOGGER
 
 _MAX_ATOMIC_NUM = 80
 _N_FEATURES = _MAX_ATOMIC_NUM + 33
@@ -139,7 +139,7 @@ def get_dataset(dataset_name: str, dataset_usage: Optional[DatasetUsage] = None,
 
 def partition_dataset(dataset: Dataset, dataset_split: DatasetSplit, random_seed: Optional[int] = 0):
     if isinstance(dataset_split, MFPCBA):
-        for seed in RANDOM_SEEDS[dataset.name]:
+        for seed in MFPCBA_SEEDS[dataset.name]:
             yield seed, mf_pcba_split(dataset, seed)
     elif isinstance(dataset_split, BasicSplit):
         np.random.seed(random_seed)

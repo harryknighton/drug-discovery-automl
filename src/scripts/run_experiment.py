@@ -4,7 +4,7 @@ import timeit
 from pathlib import Path
 from typing import Optional, Type
 
-from src.config import RANDOM_SEEDS, LOG_DIR, DEFAULT_BATCH_SIZE, DEFAULT_LR, DEFAULT_EARLY_STOP_PATIENCE, \
+from src.config import MFPCBA_SEEDS, LOG_DIR, DEFAULT_BATCH_SIZE, DEFAULT_LR, DEFAULT_EARLY_STOP_PATIENCE, \
     DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT, DEFAULT_LABEL_SCALER
 from src.data import DatasetUsage, MFPCBA, KFolds, BasicSplit, StandardScaler, MinMaxScaler, fit_label_scaler, \
     get_dataset, Scaler
@@ -147,7 +147,7 @@ def _validate_experiment_args(args: dict):
     assert args['limit_batches'] > 0
     if args['dataset'].startswith('AID'):
         if args['use_mf_pcba_splits']:
-            assert args['dataset'] in RANDOM_SEEDS.keys()
+            assert args['dataset'] in MFPCBA_SEEDS.keys()
             assert not args['k_folds']
         assert args['dataset_usage'] is not None
     else:
@@ -156,7 +156,7 @@ def _validate_experiment_args(args: dict):
 
 def _resolve_dataset_split(args):
     if args['use_mf_pcba_splits']:
-        dataset_split = MFPCBA(seeds=RANDOM_SEEDS[args['dataset']])
+        dataset_split = MFPCBA(seeds=MFPCBA_SEEDS[args['dataset']])
     elif args['k_folds']:
         dataset_split = KFolds(k=args['k_folds'], test_split=DEFAULT_TEST_SPLIT)
     else:

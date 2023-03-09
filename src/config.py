@@ -15,7 +15,7 @@ LOG_DIR = ROOT_DIR / 'logs'
 
 # Seeds used in https://chemrxiv.org/engage/chemrxiv/article-details/636fa49b80c9bfb4dc944c1c
 # From https://github.com/davidbuterez/mf-pcba
-RANDOM_SEEDS = {
+MF_PCBA_SEEDS = {
     "AID1445": [946067, 721263, 691383, 374914, 724299],
     "AID504329": [966204, 681725, 635271, 220018, 548422],
     "AID624330": [693665, 109746, 780835, 662995, 865845]
