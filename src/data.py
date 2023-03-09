@@ -1,6 +1,8 @@
 from abc import ABC
+from dataclasses import dataclass
+from enum import auto, Enum
 from pathlib import Path
-from typing import List, Any, Type
+from typing import List, Any, Type, Optional
 
 import numpy as np
 import pandas as pd
@@ -11,17 +13,43 @@ from torch import Tensor
 from torch_geometric.data import Data, InMemoryDataset, Dataset
 
 from src.config import DATAFILE_NAME, RANDOM_SEEDS, DATA_DIR, DEFAULT_LOGGER
-from src.parameters import DatasetUsage, HyperParameters, MFPCBA, BasicSplit, KFolds
 
 _MAX_ATOMIC_NUM = 80
 _N_FEATURES = _MAX_ATOMIC_NUM + 33
 
 
+class DatasetUsage(Enum):
+    SDOnly = auto()
+    DROnly = auto()
+    DRWithSDReadouts = auto()
+
+
+class DatasetSplit(ABC):
+    pass
+
+
+@dataclass(frozen=True)
+class KFolds(DatasetSplit):
+    k: int
+    test_split: float
+
+
+@dataclass(frozen=True)
+class MFPCBA(DatasetSplit):
+    seeds: List[int]
+
+
+@dataclass(frozen=True)
+class BasicSplit(DatasetSplit):
+    test_split: float
+    train_val_split: float
+
+
 class HTSDataset(InMemoryDataset):
-    def __init__(self, root: Path, dataset_usage: DatasetUsage):
-        super().__init__(str(root))
+    def __init__(self, root: Path, dataset_usage: DatasetUsage, *args: Any, **kwargs: Any):
         self.dataset_usage = dataset_usage
         self.sd_or_dr = 'SD' if self.dataset_usage == DatasetUsage.SDOnly else 'DR'
+        super().__init__(str(root), *args, **kwargs)
         self.data, self.slices = torch.load(self.processed_paths[0])
 
     def __get__(self, idx):
@@ -61,7 +89,6 @@ class HTSDataset(InMemoryDataset):
         features = model(x, edge_index, batch).detach()
         expanded_sd_labels = features[batch]
         self.data.x = torch.cat((self.data.x, expanded_sd_labels), dim=1)
-        assert self.data.x.shape[1] == get_num_input_features(DatasetUsage.DRWithSDReadouts)
 
 
 def _read_data(filepath: Path) -> pd.DataFrame:
@@ -98,10 +125,10 @@ def _set_atomic_num(num):
     PARAMS.ATOM_FDIM = sum(len(choices) + 1 for choices in PARAMS.ATOM_FEATURES.values()) + 2
 
 
-def get_dataset(dataset_name: str, **kwargs: Any) -> Dataset:
+def get_dataset(dataset_name: str, dataset_usage: Optional[DatasetUsage] = None, **kwargs: Any) -> Dataset:
     root = DATA_DIR / dataset_name
     if dataset_name.startswith('AID'):
-        return HTSDataset(root, **kwargs)
+        return HTSDataset(root, dataset_usage=dataset_usage, **kwargs)
     elif dataset_name == 'QM7b':
         return torch_geometric.datasets.QM7b(root, **kwargs)
     elif dataset_name == 'QM9':
@@ -110,22 +137,22 @@ def get_dataset(dataset_name: str, **kwargs: Any) -> Dataset:
         raise ValueError(f"Dataset {dataset_name} not recognised")
 
 
-def partition_dataset(dataset, params: HyperParameters):
-    if isinstance(params.dataset_split, MFPCBA):
+def partition_dataset(dataset: Dataset, dataset_split: DatasetSplit, random_seed: Optional[int] = 0):
+    if isinstance(dataset_split, MFPCBA):
         for seed in RANDOM_SEEDS[dataset.name]:
             yield seed, mf_pcba_split(dataset, seed)
-    elif isinstance(params.dataset_split, BasicSplit):
-        np.random.seed(params.random_seed)
-        test_dataset, training_dataset = split_dataset(dataset, params.dataset_split.test_split)
-        train_dataset, val_dataset = split_dataset(training_dataset, params.dataset_split.train_val_split)
+    elif isinstance(dataset_split, BasicSplit):
+        np.random.seed(random_seed)
+        test_dataset, training_dataset = split_dataset(dataset, dataset_split.test_split)
+        train_dataset, val_dataset = split_dataset(training_dataset, dataset_split.train_val_split)
         yield 0, (train_dataset, val_dataset, test_dataset)
-    elif isinstance(params.dataset_split, KFolds):
-        np.random.seed(params.random_seed)
-        test_dataset, training_dataset = split_dataset(dataset, params.dataset_split.test_split)
-        for i, (train_dataset, val_dataset) in enumerate(k_folds(training_dataset, params.dataset_split.k)):
+    elif isinstance(dataset_split, KFolds):
+        np.random.seed(random_seed)
+        test_dataset, training_dataset = split_dataset(dataset, dataset_split.test_split)
+        for i, (train_dataset, val_dataset) in enumerate(k_folds(training_dataset, dataset_split.k)):
             yield i, (train_dataset, val_dataset, test_dataset)
     else:
-        raise ValueError("Unsupported dataset splitting scheme " + str(params.dataset_split))
+        raise ValueError("Unsupported dataset splitting scheme " + str(dataset_split))
 
 
 def mf_pcba_split(dataset: HTSDataset, seed: int):
@@ -156,10 +183,6 @@ def k_folds(dataset: HTSDataset, k: int):
         train_dataset = dataset.index_select(train_index.tolist())
         val_dataset = dataset.index_select(val_index.tolist())
         yield train_dataset, val_dataset
-
-
-def get_num_input_features(dataset_usage: DatasetUsage):
-    return _N_FEATURES + (1 if dataset_usage == DatasetUsage.DRWithSDReadouts else 0)
 
 
 class Scaler(torch.nn.Module, ABC):
@@ -237,5 +260,5 @@ class MinMaxScaler(Scaler):
 
 def fit_label_scaler(dataset: Dataset, scaler_type: Type[Scaler]) -> Scaler:
     scaler = scaler_type()
-    scaler.fit(dataset.y)
+    scaler.fit(dataset.data.y.reshape(-1, 1))
     return scaler

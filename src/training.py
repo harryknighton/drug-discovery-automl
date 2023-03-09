@@ -1,5 +1,6 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Type
 
 import torch
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
@@ -12,11 +13,24 @@ from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
 from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR
-from src.data import partition_dataset, get_dataset, fit_label_scaler, Scaler
+from src.data import partition_dataset, Scaler, DatasetSplit, DatasetUsage
 from src.metrics import DEFAULT_METRICS, analyse_results_distribution
 from src.models import GNNArchitecture, GNN, BasicGNN
-from src.parameters import HyperParameters, DatasetUsage
 from src.reporting import generate_experiment_dir, generate_run_name, save_run, save_experiment_results
+
+
+@dataclass
+class HyperParameters:
+    random_seed: int
+    dataset_split: DatasetSplit
+    label_scaler: Type[Scaler]
+    limit_batches: float
+    batch_size: int
+    early_stop_patience: int
+    early_stop_min_delta: float
+    lr: float
+    max_epochs: int
+    num_workers: int
 
 
 class LitGNN(tl.LightningModule):
@@ -33,13 +47,15 @@ class LitGNN(tl.LightningModule):
 
     def training_step(self, data, idx):
         pred = self.model(data.x, data.edge_index, data.batch)
-        loss = self._report_loss(pred.flatten(), data.y[:, 0], 'train')  # Calculate loss on scaled labels
+        scaled_preds = self.label_scaler.inverse_transform(pred).flatten()
+        loss = self._report_loss(scaled_preds, data.y, 'train')
         return loss
 
     def validation_step(self, data, idx):
         pred = self.model(data.x, data.edge_index, data.batch)
-        self._report_loss(pred.flatten(), data.y[:, 0], 'val')  # Calculate loss on scaled labels
-        self.val_metrics.update(self.label_scaler.inverse_transform(pred).flatten(), data.y[:, 1])
+        scaled_preds = self.label_scaler.inverse_transform(pred).flatten()
+        self._report_loss(scaled_preds, data.y, 'val')
+        self.val_metrics.update(scaled_preds, data.y)
 
     def validation_epoch_end(self, outputs):
         self.log_dict(self.val_metrics.compute())
@@ -47,7 +63,8 @@ class LitGNN(tl.LightningModule):
 
     def test_step(self, data, idx):
         pred = self.model(data.x, data.edge_index, data.batch)
-        self.test_metrics.update(self.label_scaler.inverse_transform(pred).flatten(), data.y[:, 1])
+        scaled_preds = self.label_scaler.inverse_transform(pred).flatten()
+        self.test_metrics.update(scaled_preds, data.y)
 
     def test_epoch_end(self, outputs):
         self.test_results = self.test_metrics.compute()
@@ -74,23 +91,17 @@ class LitGNN(tl.LightningModule):
 
 def run_experiment(
         experiment_name: str,
-        dataset_name: str,
+        dataset: Dataset,
+        label_scaler: Scaler,
         architectures: List[GNNArchitecture],
         params: HyperParameters,
         random_seeds: List[int],
         precision: str,
-        sd_ckpt_path: Optional[Path] = None
+        dataset_usage: Optional[DatasetUsage] = None,
 ):
     """Perform a series of runs of different architectures and save the results"""
     torch.set_float32_matmul_precision(precision)
-    experiment_dir = LOG_DIR / generate_experiment_dir(dataset_name, params.dataset_usage, experiment_name)
-    DEFAULT_LOGGER.info(f"Running experiment {experiment_name} at {experiment_dir}")
-    DEFAULT_LOGGER.info(f"Loading dataset {dataset_name} containing {params.dataset_usage.name}")
-    dataset = get_dataset(dataset_name, dataset_usage=params.dataset_usage)  # TODO: Fix dataset_usage for QM datasets
-    label_scaler = fit_label_scaler(dataset, params.label_scaler)
-    if params.dataset_usage == DatasetUsage.DRWithSDReadouts:
-        sd_model = LitGNN.load_from_checkpoint(sd_ckpt_path, label_scaler=label_scaler, metrics=DEFAULT_METRICS)
-        dataset.augment_dataset_with_sd_readouts(sd_model)
+    experiment_dir = LOG_DIR / generate_experiment_dir(dataset, dataset_usage, experiment_name)
     results = {}
     for architecture in architectures:
         DEFAULT_LOGGER.debug(f"Running experiment on architecture {architecture}")
@@ -116,7 +127,8 @@ def perform_run(
     """Perform multiple runs using k-fold cross validation and return the average results"""
     run_dir = experiment_dir / (run_name if run_name else generate_run_name())
     trial_results = {}
-    for version, (train_dataset, val_dataset, test_dataset) in partition_dataset(dataset, params):
+    partition_generator = partition_dataset(dataset, params.dataset_split, params.random_seed)
+    for version, (train_dataset, val_dataset, test_dataset) in partition_generator:
         model = BasicGNN(architecture)
         datamodule = LightningDataset(
             train_dataset, val_dataset, test_dataset,

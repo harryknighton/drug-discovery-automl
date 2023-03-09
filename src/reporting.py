@@ -4,13 +4,14 @@ from collections import defaultdict
 from datetime import datetime
 
 import pandas as pd
+from torch_geometric.data import Dataset
 
 from src.config import DEFAULT_LOGGER
 from src.data import DatasetUsage
 
 
-def generate_experiment_dir(dataset_name, dataset_usage: DatasetUsage, name):
-    return f"{dataset_name}/{dataset_usage.name}/{name}"
+def generate_experiment_dir(dataset: Dataset, dataset_usage: DatasetUsage, name):
+    return f"{dataset.__class__.__name__}/{dataset_usage.name}/{name}"
 
 
 def generate_run_name():

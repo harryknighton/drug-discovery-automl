@@ -2,15 +2,16 @@ import argparse
 import logging
 import timeit
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Type
 
 from src.config import RANDOM_SEEDS, LOG_DIR, DEFAULT_BATCH_SIZE, DEFAULT_LR, DEFAULT_EARLY_STOP_PATIENCE, \
-    DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT
-from src.data import DatasetUsage, MFPCBA, KFolds, BasicSplit, get_num_input_features
+    DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT, DEFAULT_LABEL_SCALER
+from src.data import DatasetUsage, MFPCBA, KFolds, BasicSplit, StandardScaler, MinMaxScaler, fit_label_scaler, \
+    get_dataset, Scaler
+from src.metrics import DEFAULT_METRICS
 from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction
 from src.nas import search_hyperparameters, construct_search_space
-from src.parameters import HyperParameters
-from src.training import run_experiment
+from src.training import run_experiment, LitGNN, HyperParameters
 
 
 def main():
@@ -22,9 +23,11 @@ def main():
     gnn_layers_strs = [x.name for x in GNNLayerType]
     pooling_strs = [x.name for x in PoolingFunction]
     data_usage_strs = [x.name for x in DatasetUsage]
+    label_scalers = ['standard', 'minmax']
     experiment.add_argument('-N', '--name', type=str, required=True)
     experiment.add_argument('-D', '--dataset', type=str, required=True)
-    experiment.add_argument('-d', '--dataset-usage', type=str, choices=data_usage_strs, required=True)
+    experiment.add_argument('-d', '--dataset-usage', type=str, choices=data_usage_strs, default=None)
+    experiment.add_argument('-L', '--label-scaler', type=str, choices=label_scalers, default=DEFAULT_LABEL_SCALER)
     experiment.add_argument('-e', '--epochs', type=int, default=100)
     experiment.add_argument('--use-mf-pcba-splits', action='store_true')
     experiment.add_argument('--k-folds', type=int)
@@ -44,7 +47,8 @@ def main():
     optimise.set_defaults(func=_optimise)
     optimise.add_argument('-N', '--name', type=str, required=True)
     optimise.add_argument('-D', '--dataset', type=str, required=True)
-    optimise.add_argument('-d', '--dataset-usage', type=str, choices=data_usage_strs, required=True)
+    optimise.add_argument('-d', '--dataset-usage', type=str, choices=data_usage_strs, default=None)
+    optimise.add_argument('-L', '--label-scaler', type=str, choices=label_scalers, default=DEFAULT_LABEL_SCALER)
     optimise.add_argument('-S', '--search-space', type=str, choices=["simple"], required=True)
     optimise.add_argument('-e', '--max-evaluations', type=int, default=1000)
     optimise.add_argument('-s', '--seed', type=int, required=True)
@@ -63,11 +67,16 @@ def _experiment(args):
     sd_ckpt_path = _resolve_sd_ckpt_path(args['sd_ckpt'], args['dataset'])
     layer_types = _resolve_layers(args)
     pool_funcs = _resolve_pooling_function(args)
-    input_features = get_num_input_features(dataset_usage)
+    label_scaler_type = _resolve_label_scaler(args)
+
+    dataset = get_dataset(args['dataset'], dataset_usage=dataset_usage)
+    label_scaler = fit_label_scaler(dataset, label_scaler_type)
+    if dataset_usage == DatasetUsage.DRWithSDReadouts:
+        sd_model = LitGNN.load_from_checkpoint(sd_ckpt_path, label_scaler=label_scaler, metrics=DEFAULT_METRICS)
+        dataset.augment_dataset_with_sd_readouts(sd_model)
 
     params = HyperParameters(
         random_seed=args['seeds'],
-        dataset_usage=dataset_usage,
         dataset_split=dataset_split,
         limit_batches=args['limit_batches'],
         batch_size=DEFAULT_BATCH_SIZE,
@@ -75,7 +84,8 @@ def _experiment(args):
         early_stop_min_delta=DEFAULT_EARLY_STOP_DELTA,
         lr=DEFAULT_LR,
         max_epochs=args['epochs'],
-        num_workers=args['num_workers']
+        num_workers=args['num_workers'],
+        label_scaler=label_scaler_type,
     )
 
     architectures = []
@@ -87,7 +97,7 @@ def _experiment(args):
                         build_uniform_gnn_architecture(
                             layer_type=layer_type,
                             num_layers=num_layers,
-                            input_features=input_features,
+                            input_features=dataset.num_node_features,
                             hidden_features=features,
                             pool_func=pool_func,
                             batch_normalise=True,
@@ -100,12 +110,13 @@ def _experiment(args):
     start = timeit.default_timer()
     run_experiment(
         experiment_name=args['name'],
-        dataset_name=args['dataset'],
+        dataset=dataset,
+        label_scaler=label_scaler,
         architectures=architectures,
         params=params,
         random_seeds=args['seeds'],
         precision=args['precision'],
-        sd_ckpt_path=sd_ckpt_path
+        dataset_usage=dataset_usage,
     )
     end = timeit.default_timer()
     logging.info(f"Finished experiment in {end - start}s.")
@@ -128,15 +139,20 @@ def _optimise(args: dict):
 
 
 def _validate_experiment_args(args: dict):
-    assert args['dataset'] in RANDOM_SEEDS.keys()
     assert args['epochs'] > 0
-    assert not (args['use_mf_pcba_splits'] and args['k_folds'])
     assert len(args['seeds']) > 0
     assert all(f > 0 for f in args['features'])
     assert all(n > 0 for n in args['num_layers'])
     assert args['num_regression_layers'] is None or args['num_regression_layers'] > 0
     assert args['regression_features'] is None or args['regression_features'] > 0
     assert args['limit_batches'] > 0
+    if args['dataset'].startswith('AID'):
+        if args['use_mf_pcba_splits']:
+            assert args['dataset'] in RANDOM_SEEDS.keys()
+            assert not args['k_folds']
+        assert args['dataset_usage'] is not None
+    else:
+        assert not args['use_mf_pcba_splits']
 
 
 def _resolve_dataset_split(args):
@@ -173,6 +189,15 @@ def _resolve_layers(args):
 
 def _resolve_pooling_function(args):
     return [PoolingFunction[name] for name in args['pooling_functions']]
+
+
+def _resolve_label_scaler(args) -> Type[Scaler]:
+    if args['label_scaler'] == 'standard':
+        return StandardScaler
+    elif args['label_scaler'] == 'minmax':
+        return MinMaxScaler
+    else:
+        raise ValueError("Unknown label scaler " + str(args['label_scaler']))
 
 
 if __name__ == '__main__':
