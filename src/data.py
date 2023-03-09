@@ -21,6 +21,7 @@ _N_FEATURES = _MAX_ATOMIC_NUM + 33
 class DatasetUsage(Enum):
     SDOnly = auto()
     DROnly = auto()
+    DRWithSDLabels = auto()
     DRWithSDReadouts = auto()
 
 
@@ -48,7 +49,7 @@ class BasicSplit(DatasetSplit):
 class HTSDataset(InMemoryDataset):
     def __init__(self, root: Path, dataset_usage: DatasetUsage, *args: Any, **kwargs: Any):
         self.dataset_usage = dataset_usage
-        self.sd_or_dr = 'SD' if self.dataset_usage == DatasetUsage.SDOnly else 'DR'
+        self.label_column = _get_label_column(dataset_usage)
         super().__init__(str(root), *args, **kwargs)
         self.data, self.slices = torch.load(self.processed_paths[0])
 
@@ -61,17 +62,25 @@ class HTSDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [f'processed_{self.sd_or_dr.lower()}_data.pt']
+        match self.dataset_usage:
+            case DatasetUsage.DROnly | DatasetUsage.DRWithSDReadouts: name = 'dr'
+            case DatasetUsage.SDOnly: name = 'sd'
+            case DatasetUsage.DRWithSDLabels: name = 'dr_sd'
+            case _: raise ValueError("Unsupported DatasetUsage")
+        return [f'processed_{name}_data.pt']
 
     def download(self):
         pass
 
     def process(self):
-        DEFAULT_LOGGER.debug(f"Processing dataset {self.name} at {self.root}")
-        df = _read_data(Path(self.root) / self.raw_file_names[0])
-        if self.sd_or_dr == 'DR':
-            df = df[df['DR'].notnull()]
-        data_list = _process_data(df, self.sd_or_dr)
+        DEFAULT_LOGGER.debug(f"Processing dataset at {self.root}")
+        df = _read_data(Path(self.raw_paths[0]))
+        df = df[df[self.label_column].notnull()]
+        data_list = _process_data(
+            df,
+            label_col=self.label_column,
+            include_sd_labels=self.dataset_usage == DatasetUsage.DRWithSDLabels
+        )
         data, slices = self.collate(data_list)
         torch.save((data, slices), self.processed_paths[0])
 
@@ -91,19 +100,32 @@ class HTSDataset(InMemoryDataset):
         self.data.x = torch.cat((self.data.x, expanded_sd_labels), dim=1)
 
 
+def _get_label_column(dataset_usage: DatasetUsage) -> str:
+    match dataset_usage:
+        case DatasetUsage.SDOnly:
+            return 'SD'
+        case DatasetUsage.DROnly | DatasetUsage.DRWithSDReadouts | DatasetUsage.DRWithSDLabels:
+            return 'DR'
+        case _:
+            raise ValueError("Unsupported DatasetUsage")
+
+
 def _read_data(filepath: Path) -> pd.DataFrame:
     return pd.read_csv(filepath)
 
 
-def _process_data(df: pd.DataFrame, sd_or_dr) -> List[Data]:
+def _process_data(df: pd.DataFrame, label_col: str, include_sd_labels: bool) -> List[Data]:
     import chemprop
     _set_atomic_num(_MAX_ATOMIC_NUM)
     smiles = df['neut-smiles']
     mols = [chemprop.features.featurization.MolGraph(s) for s in smiles]
     xs = [Tensor(m.f_atoms) for m in mols]
+    if include_sd_labels:
+        assert len(xs) == len(df['SD'])
+        xs = [torch.cat((x, torch.full((x.shape[0], 1), label)), dim=1) for x, label in zip(xs, df['SD'])]
     conns = [_get_connectivity(m) for m in mols]
     edge_indexes = [torch.tensor(conn, dtype=torch.long).T.contiguous() for conn in conns]
-    ys = Tensor(df[sd_or_dr].values)
+    ys = Tensor(df[label_col].values)
     return [Data(x=x, edge_index=index, y=y) for x, index, y in zip(xs, edge_indexes, ys)]
 
 
