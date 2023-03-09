@@ -116,7 +116,6 @@ def _experiment(args):
         architectures=architectures,
         params=params,
         precision=args['precision'],
-        dataset_usage=dataset_usage,
     )
     end = timeit.default_timer()
     logging.info(f"Finished experiment in {end - start}s.")

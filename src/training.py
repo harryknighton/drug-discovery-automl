@@ -96,11 +96,10 @@ def run_experiment(
         architectures: List[GNNArchitecture],
         params: HyperParameters,
         precision: str,
-        dataset_usage: Optional[DatasetUsage] = None,
 ):
     """Perform a series of runs of different architectures and save the results"""
     torch.set_float32_matmul_precision(precision)
-    experiment_dir = LOG_DIR / generate_experiment_dir(dataset.dataset, dataset_usage, experiment_name)
+    experiment_dir = LOG_DIR / generate_experiment_dir(dataset, experiment_name)
     results = {}
     for architecture in architectures:
         DEFAULT_LOGGER.debug(f"Running experiment on architecture {architecture}")
@@ -121,9 +120,9 @@ def perform_run(
     run_dir = experiment_dir / (run_name if run_name else generate_run_name())
     run_results = {}
     for seed in params.random_seeds:
-        tl.seed_everything(seed, workers=True)
-        partition_generator = partition_dataset(dataset.dataset, params.dataset_split, seed)
-        for data_version, (train_dataset, val_dataset, test_dataset) in partition_generator:
+        data_partitions = partition_dataset(dataset.dataset, params.dataset_split, seed)
+        for data_version, (train_dataset, val_dataset, test_dataset) in data_partitions:
+            tl.seed_everything(seed, workers=True)
             version = f'S{seed}_D{data_version}'
             model = BasicGNN(architecture)
             datamodule = LightningDataset(
