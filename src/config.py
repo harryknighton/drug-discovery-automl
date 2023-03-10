@@ -9,7 +9,7 @@ DEFAULT_LOGGER.addHandler(_CONSOLE_HANDLER)
 DATAFILE_NAME = 'SD.csv'
 
 ROOT_DIR = Path(__file__).absolute().parent.parent
-DATA_DIR = ROOT_DIR / 'data'
+DATASETS_DIR = ROOT_DIR / 'datasets'
 LOG_DIR = ROOT_DIR / 'logs'
 
 

@@ -7,7 +7,7 @@ import torch_geometric
 from sklearn import model_selection
 from torch_geometric.data import Dataset
 
-from src.config import DATA_DIR, MF_PCBA_SEEDS
+from src.config import DATASETS_DIR, MF_PCBA_SEEDS
 from src.data.hts import HTSDataset
 from src.data.scaling import Scaler
 
