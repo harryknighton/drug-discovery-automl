@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from src.data import StandardScaler, MinMaxScaler
+from src.data.scaling import StandardScaler, MinMaxScaler
 
 
 def test_standard_scaler_with_1d_input_raises_error():

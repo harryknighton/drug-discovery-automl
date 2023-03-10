@@ -6,8 +6,9 @@ from typing import Optional, Type
 
 from src.config import LOG_DIR, DEFAULT_BATCH_SIZE, DEFAULT_LR, DEFAULT_EARLY_STOP_PATIENCE, \
     DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT, DEFAULT_LABEL_SCALER, MF_PCBA_SEEDS
-from src.data import DatasetUsage, MFPCBA, KFolds, BasicSplit, StandardScaler, MinMaxScaler, fit_label_scaler, \
-    get_dataset, Scaler, NamedLabelledDataset
+from src.data.hts import DatasetUsage
+from src.data.scaling import fit_label_scaler, Scaler, StandardScaler, MinMaxScaler
+from src.data.utils import get_dataset, NamedLabelledDataset, BasicSplit, MFPCBA, KFolds
 from src.metrics import DEFAULT_METRICS
 from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction
 from src.nas import search_hyperparameters, construct_search_space

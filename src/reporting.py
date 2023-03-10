@@ -6,7 +6,8 @@ from datetime import datetime
 import pandas as pd
 
 from src.config import DEFAULT_LOGGER
-from src.data import NamedLabelledDataset, HTSDataset
+from src.data.hts import HTSDataset
+from src.data.utils import NamedLabelledDataset
 
 
 def generate_experiment_dir(dataset: NamedLabelledDataset, experiment_name: str):
