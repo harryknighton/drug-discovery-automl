@@ -60,7 +60,9 @@ def search_hyperparameters(
 
     assert best is not None
     best_architecture = _convert_to_gnn_architecture(
-        hyperopt.space_eval(search_space, best), input_features=dataset.dataset.num_features
+        hyperopt.space_eval(search_space, best),
+        input_features=dataset.dataset.num_features,
+        output_features=dataset.dataset.num_classes,
     )
     DEFAULT_LOGGER.info(f"Best results: {trials.best_trial['result']['metrics']}")
     DEFAULT_LOGGER.info(f"Best architecture: {best_architecture}")
@@ -95,7 +97,7 @@ def _prepare_objective(dataset: Dataset, label_scaler: Scaler, params: HyperPara
     def objective(x):
         if not hasattr(objective, 'version'):
             objective.version = 0
-        architecture = _convert_to_gnn_architecture(x, dataset.num_features)
+        architecture = _convert_to_gnn_architecture(x, dataset.num_features, dataset.num_classes)
         model = BasicGNN(architecture)
         DEFAULT_LOGGER.debug("Evaluating architecture " + str(architecture))
         try:
@@ -120,9 +122,12 @@ def _prepare_objective(dataset: Dataset, label_scaler: Scaler, params: HyperPara
     return objective
 
 
-def _convert_to_gnn_architecture(space: dict, input_features: int) -> GNNArchitecture:
+def _convert_to_gnn_architecture(space: dict, input_features: int, output_features: int) -> GNNArchitecture:
     layers = space['layers']
-    regression_architecture = build_uniform_regression_layer_architecture(input_features=int(layers['hidden_features']))
+    regression_architecture = build_uniform_regression_layer_architecture(
+        input_features=int(layers['hidden_features']),
+        output_features=output_features
+    )
     return GNNArchitecture(
         layer_types=layers['layer_types'],
         features=[input_features] + [int(layers['hidden_features'])] * layers['num'],

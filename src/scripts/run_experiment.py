@@ -99,6 +99,7 @@ def _experiment(args):
                             layer_type=layer_type,
                             num_layers=num_layers,
                             input_features=dataset.dataset.num_node_features,
+                            output_features=dataset.dataset.num_classes,
                             hidden_features=features,
                             pool_func=pool_func,
                             batch_normalise=True,

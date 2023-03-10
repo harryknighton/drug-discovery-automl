@@ -57,6 +57,10 @@ class HTSDataset(InMemoryDataset):
         return self.get(idx)
 
     @property
+    def num_classes(self) -> int:
+        return 1
+
+    @property
     def raw_file_names(self):
         return [DATAFILE_NAME]
 
