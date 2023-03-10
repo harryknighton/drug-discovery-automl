@@ -27,10 +27,9 @@ def search_hyperparameters(
 ):
     torch.set_float32_matmul_precision(precision)
     tl.seed_everything(params.random_seeds[0], workers=True)
-    name = 'hyperopt_' + experiment_name
 
     # Load objects needed for HyperOpt
-    experiment_dir = LOG_DIR / generate_experiment_dir(dataset.dataset, dataset.dataset.dataset_usage, name)
+    experiment_dir = LOG_DIR / generate_experiment_dir(dataset.dataset, 'hyperopt_' + experiment_name)
     objective = _prepare_objective(dataset.dataset, dataset.label_scaler, params, experiment_dir)
     trials = _load_trials(experiment_dir)
     start = len(trials.trials)
