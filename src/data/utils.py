@@ -41,15 +41,15 @@ class BasicSplit(DatasetSplit):
 
 
 def get_dataset(dataset_name: str, **kwargs: Any) -> Dataset:
-    root = DATA_DIR / dataset_name
+    root = DATASETS_DIR / dataset_name
     if dataset_name.startswith('AID'):
         if 'dataset_usage' not in kwargs:
             raise ValueError("Must provide DatasetUsage for HTSDataset")
         return HTSDataset(root, dataset_usage=kwargs['dataset_usage'])
     elif dataset_name == 'QM7b':
-        return torch_geometric.datasets.QM7b(root, **kwargs)
+        return torch_geometric.datasets.QM7b(root)
     elif dataset_name == 'QM9':
-        return torch_geometric.datasets.QM9(root, **kwargs)
+        return torch_geometric.datasets.QM9(root)
     else:
         raise ValueError(f"Dataset {dataset_name} not recognised")
 
