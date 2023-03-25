@@ -60,11 +60,11 @@ class JacobianCovariance(Proxy):
 
     @staticmethod
     def _compute_jacobian(model: GNNModule, batch: Data) -> Tensor:
-        batch.x.requires_grad = True
+        batch.x.requires_grad_(True)
         y = model(batch.xs, batch.edge_index, batch.batch)
         y.backward(torch.ones_like(y))
         jacob = batch.x.grad.detach()
-        batch.x.requires_grad = False
+        batch.x.requires_grad_(False)
         return jacob
 
 
