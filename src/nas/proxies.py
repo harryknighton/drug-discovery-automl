@@ -2,15 +2,20 @@ from abc import ABC
 from typing import List
 
 import torch
+import torch_geometric.nn
 from torch import Tensor
+from torch.nn import Linear
 from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
 
-from src.models import GNNModule
+from src.models import GNNModule, GraphBlock
 
 
 class Proxy(ABC):
     higher_is_better = False
+
+    def __init__(self, num_samples: int = 64) -> None:
+        self.num_samples = num_samples
 
     def calculate(self, model: GNNModule, dataset: Dataset) -> float:
         pass
@@ -21,6 +26,7 @@ class Proxy(ABC):
 
 class MajorityVote(Proxy):
     def __init__(self, proxies: List[Proxy]) -> None:
+        super(Proxy, self).__init__()
         self.proxies = proxies
 
     def calculate(self, model: GNNModule, dataset: Dataset) -> float:
@@ -61,13 +67,11 @@ class JacobianCovariance(Proxy):
     @staticmethod
     def _compute_jacobian(model: GNNModule, batch: Data) -> Tensor:
         batch.x.requires_grad_(True)
-        y = model(batch.xs, batch.edge_index, batch.batch)
-        y.backward(torch.ones_like(y))
+        preds = model(batch.xs, batch.edge_index, batch.batch)
+        preds.backward(torch.ones_like(preds))
         jacob = batch.x.grad.detach()
         batch.x.requires_grad_(False)
         return jacob
-
-
 
 
 class ZiCo(Proxy):
@@ -77,7 +81,15 @@ class ZiCo(Proxy):
 
 class GradientNorm(Proxy):
     def calculate(self, model: GNNModule, dataset: Dataset) -> float:
-        pass
+        batch = next(iter(DataLoader(dataset, batch_size=self.num_samples, shuffle=False)))
+        model.train()
+        preds = model(batch.xs, batch.edge_index, batch.batch)
+        preds.backward()
+        gradient_norm = torch.tensor(0)
+        for layer in model.modules():
+            if isinstance(layer, (torch.nn.Linear, torch_geometric.nn.Linear)) and layer.weight.grad is not None:
+                gradient_norm += layer.weight.grad.norm()
+        return gradient_norm.detach()
 
 
 class Snip(Proxy):
