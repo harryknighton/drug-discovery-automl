@@ -13,7 +13,7 @@ from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_SAVE_TRIALS_EVERY
 from src.data.scaling import Scaler
 from src.data.utils import NamedLabelledDataset, BasicSplit, split_dataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
-    build_uniform_regression_layer_architecture, BasicGNN
+    build_uniform_regression_layer_architecture, GNN
 from src.reporting import generate_experiment_dir
 from src.training import train_model, HyperParameters
 
@@ -98,7 +98,7 @@ def _prepare_objective(dataset: Dataset, label_scaler: Scaler, params: HyperPara
         if not hasattr(objective, 'version'):
             objective.version = 0
         architecture = _convert_to_gnn_architecture(x, dataset.num_features, dataset.num_classes)
-        model = BasicGNN(architecture)
+        model = GNN(architecture)
         DEFAULT_LOGGER.debug("Evaluating architecture " + str(architecture))
         try:
             result = train_model(

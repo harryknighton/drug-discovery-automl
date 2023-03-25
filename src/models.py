@@ -94,12 +94,12 @@ class GNNArchitecture(ModelArchitecture):
         )
 
 
-class GNN(torch.nn.Module, ABC):
+class GNNModule(torch.nn.Module, ABC):
     def forward(self, x: Tensor, edge_index: Tensor, batch: Tensor):
         pass
 
 
-class GraphBlock(GNN):
+class GraphBlock(GNNModule):
     def __init__(
         self,
         layer_type: GNNLayerType,
@@ -148,9 +148,9 @@ class RegressionLayer(torch.nn.Module):
         return x
 
 
-class BasicGNN(GNN):
+class GNN(GNNModule):
     def __init__(self, architecture: GNNArchitecture):
-        super(BasicGNN, self).__init__()
+        super(GNN, self).__init__()
         self.blocks = ModuleList()
         num_layers = len(architecture.layer_types)
         for i in range(num_layers):

@@ -16,7 +16,7 @@ from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEF
 from src.data.scaling import Scaler
 from src.data.utils import DatasetSplit, NamedLabelledDataset, partition_dataset
 from src.metrics import DEFAULT_METRICS, analyse_results_distribution
-from src.models import GNNArchitecture, GNN, BasicGNN
+from src.models import GNNArchitecture, GNNModule, GNN
 from src.reporting import generate_experiment_dir, generate_run_name, save_experiment_results, \
     save_run_results
 
@@ -36,7 +36,7 @@ class HyperParameters:
 
 
 class LitGNN(tl.LightningModule):
-    def __init__(self, model: GNN, params: HyperParameters, metrics: MetricCollection, label_scaler: Scaler):
+    def __init__(self, model: GNNModule, params: HyperParameters, metrics: MetricCollection, label_scaler: Scaler):
         super().__init__()
         self.model = model
         self.params = params
@@ -126,7 +126,7 @@ def perform_run(
         for data_version, (train_dataset, val_dataset, test_dataset) in data_partitions:
             tl.seed_everything(seed, workers=True)
             version = f'S{seed}_D{data_version}'
-            model = BasicGNN(architecture)
+            model = GNN(architecture)
             datamodule = LightningDataset(
                 train_dataset, val_dataset, test_dataset,
                 batch_size=params.batch_size, num_workers=params.num_workers
@@ -139,7 +139,7 @@ def perform_run(
 
 
 def train_model(
-    model: GNN,
+    model: GNNModule,
     params: HyperParameters,
     datamodule: LightningDataModule,
     label_scaler: Scaler,
