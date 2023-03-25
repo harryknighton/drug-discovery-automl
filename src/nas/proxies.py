@@ -1,17 +1,21 @@
 from abc import ABC
 from typing import List
 
-from torch.nn import Module
-from torch_geometric.data import Dataset
+import torch
+from torch import Tensor
+from torch_geometric.data import Dataset, Data
+from torch_geometric.loader import DataLoader
+
+from src.models import GNNModule
 
 
 class Proxy(ABC):
     higher_is_better = False
 
-    def calculate(self, model: Module, dataset: Dataset) -> float:
+    def calculate(self, model: GNNModule, dataset: Dataset) -> float:
         pass
 
-    def __call__(self, model: Module, dataset: Dataset) -> float:
+    def __call__(self, model: GNNModule, dataset: Dataset) -> float:
         return self.calculate(model, dataset)
 
 
@@ -19,7 +23,7 @@ class MajorityVote(Proxy):
     def __init__(self, proxies: List[Proxy]) -> None:
         self.proxies = proxies
 
-    def calculate(self, model: Module, dataset: Dataset) -> float:
+    def calculate(self, model: GNNModule, dataset: Dataset) -> float:
         results = [proxy(model, dataset) for proxy in self.proxies]
         return sum(results) / len(results)
 
@@ -29,12 +33,12 @@ class MajorityVote(Proxy):
 
 
 class NumParams(Proxy):
-    def calculate(self, model: Module, dataset: Dataset) -> float:
+    def calculate(self, model: GNNModule, dataset: Dataset) -> float:
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
 class SynapticFlow(Proxy):
-    def calculate(self, model: Module, dataset: Dataset) -> float:
+    def calculate(self, model: GNNModule, dataset: Dataset) -> float:
         pass
 
 # ----------------------------------------------
@@ -42,20 +46,40 @@ class SynapticFlow(Proxy):
 
 
 class JacobianCovariance(Proxy):
-    def calculate(self, model: Module, dataset: Dataset) -> float:
-        pass
+    higher_is_better = True
+
+    def __init__(self, num_samples: int = 64) -> None:
+        super(JacobianCovariance, self).__init__()
+        self.num_samples = num_samples
+
+    def calculate(self, model: GNNModule, dataset: Dataset) -> float:
+        batch = next(iter(DataLoader(dataset, batch_size=self.num_samples, shuffle=False)))
+        jacobian = self._compute_jacobian(model, batch)
+        _, log_determinant = torch.linalg.slogdet(jacobian)
+        return log_determinant
+
+    @staticmethod
+    def _compute_jacobian(model: GNNModule, batch: Data) -> Tensor:
+        batch.x.requires_grad = True
+        y = model(batch.xs, batch.edge_index, batch.batch)
+        y.backward(torch.ones_like(y))
+        jacob = batch.x.grad.detach()
+        batch.x.requires_grad = False
+        return jacob
+
+
 
 
 class ZiCo(Proxy):
-    def calculate(self, model: Module, dataset: Dataset) -> float:
+    def calculate(self, model: GNNModule, dataset: Dataset) -> float:
         pass
 
 
 class GradientNorm(Proxy):
-    def calculate(self, model: Module, dataset: Dataset) -> float:
+    def calculate(self, model: GNNModule, dataset: Dataset) -> float:
         pass
 
 
 class Snip(Proxy):
-    def calculate(self, model: Module, dataset: Dataset) -> float:
+    def calculate(self, model: GNNModule, dataset: Dataset) -> float:
         pass
