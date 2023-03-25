@@ -29,27 +29,33 @@ class MajorityVote(Proxy):
 
 
 class NumParams(Proxy):
-    pass
+    def calculate(self, model: Module, dataset: Dataset) -> float:
+        return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
 class SynapticFlow(Proxy):
-    pass
+    def calculate(self, model: Module, dataset: Dataset) -> float:
+        pass
 
 # ----------------------------------------------
 # Data Dependent Proxies
 
 
 class JacobianCovariance(Proxy):
-    pass
+    def calculate(self, model: Module, dataset: Dataset) -> float:
+        pass
 
 
 class ZiCo(Proxy):
-    pass
+    def calculate(self, model: Module, dataset: Dataset) -> float:
+        pass
 
 
 class GradientNorm(Proxy):
-    pass
+    def calculate(self, model: Module, dataset: Dataset) -> float:
+        pass
 
 
 class Snip(Proxy):
-    pass
+    def calculate(self, model: Module, dataset: Dataset) -> float:
+        pass
