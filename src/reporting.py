@@ -2,19 +2,26 @@ import json
 import pickle
 from collections import defaultdict
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 
-from src.config import DEFAULT_LOGGER
+from src.config import DEFAULT_LOGGER, LOG_DIR
 from src.data.hts import HTSDataset
 from src.data.utils import NamedLabelledDataset
 
 
-def generate_experiment_dir(dataset: NamedLabelledDataset, experiment_name: str):
+def generate_experiment_dir(dataset: NamedLabelledDataset, experiment_name: str) -> Path:
+    experiment_dir = LOG_DIR / dataset.name
     if isinstance(dataset.dataset, HTSDataset):
-        return dataset.name + '/' + dataset.dataset.dataset_usage.name + '/' + experiment_name
-    else:
-        return dataset.name + '/' + experiment_name
+        experiment_dir /= dataset.dataset.dataset_usage.name
+    experiment_dir /= experiment_name
+    counter = 0
+    version_dir = Path(str(experiment_dir) + '_0')
+    while version_dir.exists():
+        counter += 1
+        version_dir = Path(str(experiment_dir) + '_' + str(counter))
+    return version_dir
 
 
 def generate_run_name():

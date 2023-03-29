@@ -99,9 +99,9 @@ def run_experiment(
     """Perform a series of runs of different architectures and save the results"""
     torch.set_float32_matmul_precision(params.precision)
     results = {}
-    for architecture in architectures:
+    for run_id, architecture in enumerate(architectures):
         DEFAULT_LOGGER.debug(f"Running experiment on architecture {architecture}")
-        run_results = perform_run(dataset, architecture, params, experiment_dir)
+        run_results = perform_run(dataset, architecture, params, experiment_dir, run_name=str(run_id))
         results[str(architecture)] = analyse_results_distribution(run_results)
     save_experiment_results(results, experiment_dir)
 
@@ -114,7 +114,7 @@ def perform_run(
     run_name: Optional[str] = None,
 ):
     """Perform multiple runs using k-fold cross validation and return the average results"""
-    run_dir = experiment_dir / (run_name if run_name else generate_run_name())
+    run_dir = experiment_dir / (run_name if run_name is not None else generate_run_name())
     run_results = {}
     for seed in params.random_seeds:
         data_partitions = partition_dataset(dataset.dataset, params.dataset_split, seed)

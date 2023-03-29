@@ -51,7 +51,7 @@ def main():
         precision=DEFAULT_PRECISION
     )
 
-    experiment_dir = LOG_DIR / generate_experiment_dir(dataset, args['experiment_name'])
+    experiment_dir = generate_experiment_dir(dataset, args['experiment_name'])
     experiment_type = config['type']
     start = timeit.default_timer()
     if experiment_type == 'experiment':
