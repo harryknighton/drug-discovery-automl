@@ -1,0 +1,16 @@
+type = 'nas'
+
+seeds = 2409
+
+[search]
+max_evaluations = 500
+search_space = 'simple'
+
+[data]
+label_scaler = 'standard'
+# use_mf_pcba_splits = true
+# k_folds = 0
+num_workers = 32
+
+[training]
+max_epochs = 100

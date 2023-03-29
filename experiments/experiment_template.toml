@@ -1,0 +1,20 @@
+type = 'experiment'
+
+seeds = [4281, 7945, 7026]
+
+[models]
+num_layers = [2, 3, 4]
+layer_types = ['GCN', 'GIN', 'GAT', 'GATv2']
+features = [128]
+num_regression_layers = 2
+regression_features = 2
+pooling_functions = ['MEAN', 'MAX', 'ADD']
+
+[data]
+label_scaler = 'standard'
+use_mf_pcba_splits = true
+# k_folds = 0
+num_workers = 32
+
+[training]
+max_epochs = 100

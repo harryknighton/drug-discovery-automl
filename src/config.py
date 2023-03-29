@@ -11,6 +11,7 @@ DATAFILE_NAME = 'SD.csv'
 ROOT_DIR = Path(__file__).absolute().parent.parent
 DATASETS_DIR = ROOT_DIR / 'datasets'
 LOG_DIR = ROOT_DIR / 'logs'
+EXPERIMENTS_DIR = ROOT_DIR / 'experiments'
 
 
 # Seeds used in https://chemrxiv.org/engage/chemrxiv/article-details/636fa49b80c9bfb4dc944c1c
@@ -35,3 +36,4 @@ DEFAULT_TEST_SPLIT = 0.1
 DEFAULT_TRAIN_VAL_SPLIT = 0.9
 
 DEFAULT_SAVE_TRIALS_EVERY = 100
+DEFAULT_PRECISION = 'medium'

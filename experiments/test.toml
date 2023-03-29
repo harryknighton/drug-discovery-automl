@@ -1,0 +1,20 @@
+type = 'experiment'
+
+seeds = [0]
+
+[models]
+num_layers = [1]
+layer_types = ['GCN']
+features = [64]
+num_regression_layers = 1
+regression_features = 64
+pooling_functions = ['ADD']
+
+[data]
+label_scaler = 'standard'
+# use_mf_pcba_splits = false
+# k_folds = 2
+num_workers = 0
+
+[training]
+max_epochs = 1

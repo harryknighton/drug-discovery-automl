@@ -19,24 +19,21 @@ from src.training import train_model, HyperParameters
 
 
 def search_hyperparameters(
+    experiment_dir: Path,
     dataset: NamedLabelledDataset,
     params: HyperParameters,
     search_space: dict,
     max_evals: int,
-    experiment_name: str,
-    precision: str = 'medium',
 ):
-    torch.set_float32_matmul_precision(precision)
+    torch.set_float32_matmul_precision(params.precision)
     tl.seed_everything(params.random_seeds[0], workers=True)
 
     # Load objects needed for HyperOpt
-    experiment_dir = LOG_DIR / generate_experiment_dir(dataset.dataset, 'hyperopt_' + experiment_name)
+
     objective = _prepare_objective(dataset.dataset, dataset.label_scaler, params, experiment_dir)
     trials = _load_trials(experiment_dir)
     start = len(trials.trials)
     rstate = np.random.default_rng(params.random_seeds[0])
-
-    DEFAULT_LOGGER.info(f"Running NAS experiment {experiment_name} at {experiment_dir}")
 
     if start >= max_evals:
         raise ValueError(f"max-evaluations should be greater than the number of trials performed so far ({start})")

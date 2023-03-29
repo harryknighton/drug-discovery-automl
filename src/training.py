@@ -33,6 +33,7 @@ class HyperParameters:
     lr: float
     max_epochs: int
     num_workers: int
+    precision: str
 
 
 class LitGNN(tl.LightningModule):
@@ -92,27 +93,23 @@ class LitGNN(tl.LightningModule):
 
 
 def run_experiment(
-        experiment_name: str,
+        experiment_dir: Path,
         dataset: NamedLabelledDataset,
-        label_scaler: Scaler,
         architectures: List[GNNArchitecture],
         params: HyperParameters,
-        precision: str,
 ):
     """Perform a series of runs of different architectures and save the results"""
-    torch.set_float32_matmul_precision(precision)
-    experiment_dir = LOG_DIR / generate_experiment_dir(dataset, experiment_name)
+    torch.set_float32_matmul_precision(params.precision)
     results = {}
     for architecture in architectures:
         DEFAULT_LOGGER.debug(f"Running experiment on architecture {architecture}")
-        run_results = perform_run(dataset, label_scaler, architecture, params, experiment_dir)
+        run_results = perform_run(dataset, architecture, params, experiment_dir)
         results[str(architecture)] = analyse_results_distribution(run_results)
     save_experiment_results(results, experiment_dir)
 
 
 def perform_run(
     dataset: NamedLabelledDataset,
-    label_scaler: Scaler,
     architecture: GNNArchitecture,
     params: HyperParameters,
     experiment_dir: Path,
@@ -131,7 +128,7 @@ def perform_run(
                 train_dataset, val_dataset, test_dataset,
                 batch_size=params.batch_size, num_workers=params.num_workers
             )
-            result = train_model(model, params, datamodule, label_scaler, run_dir, version=version)
+            result = train_model(model, params, datamodule, dataset.label_scaler, run_dir, version=version)
             run_results[version] = result
 
     save_run_results(run_results, run_dir)
