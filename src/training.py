@@ -12,13 +12,12 @@ from torch_geometric.data import LightningDataset
 from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
-from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR
+from src.config import DEFAULT_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR
 from src.data.scaling import Scaler
 from src.data.utils import DatasetSplit, NamedLabelledDataset, partition_dataset
 from src.metrics import DEFAULT_METRICS, analyse_results_distribution
 from src.models import GNNArchitecture, GNNModule, GNN
-from src.reporting import generate_experiment_dir, generate_run_name, save_experiment_results, \
-    save_run_results
+from src.reporting import generate_run_name, save_experiment_results, save_run_results
 
 
 @dataclass
@@ -26,7 +25,6 @@ class HyperParameters:
     random_seeds: List[int]
     dataset_split: DatasetSplit
     label_scaler: Type[Scaler]
-    limit_batches: float
     batch_size: int
     early_stop_patience: int
     early_stop_min_delta: float
@@ -184,9 +182,6 @@ def train_model(
         logger=logger,
         enable_progress_bar=False,
         enable_model_summary=save_logs,
-        limit_train_batches=params.limit_batches,
-        limit_test_batches=params.limit_batches,
-        limit_val_batches=params.limit_batches,
     )
 
     trainer.fit(model, datamodule=datamodule)

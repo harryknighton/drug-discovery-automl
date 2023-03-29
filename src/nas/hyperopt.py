@@ -9,12 +9,11 @@ import torch
 from hyperopt import hp
 from torch_geometric.data import LightningDataset, Dataset
 
-from src.config import LOG_DIR, DEFAULT_LOGGER, DEFAULT_SAVE_TRIALS_EVERY
+from src.config import DEFAULT_LOGGER, DEFAULT_SAVE_TRIALS_EVERY
 from src.data.scaling import Scaler
 from src.data.utils import NamedLabelledDataset, BasicSplit, split_dataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture, GNN
-from src.reporting import generate_experiment_dir
 from src.training import train_model, HyperParameters
 
 

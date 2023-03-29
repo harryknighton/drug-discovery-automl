@@ -41,7 +41,6 @@ def main():
     params = HyperParameters(
         random_seeds=config['seeds'],
         dataset_split=dataset_split,
-        limit_batches=1.0,  # TODO: Remove limit batches
         batch_size=DEFAULT_BATCH_SIZE,
         early_stop_patience=DEFAULT_EARLY_STOP_PATIENCE,
         early_stop_min_delta=DEFAULT_EARLY_STOP_DELTA,

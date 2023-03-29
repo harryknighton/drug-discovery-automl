@@ -4,11 +4,10 @@ from typing import List
 import torch
 import torch_geometric.nn
 from torch import Tensor
-from torch.nn import Linear
 from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
 
-from src.models import GNNModule, GraphBlock
+from src.models import GNNModule
 
 
 class Proxy(ABC):
