@@ -41,10 +41,14 @@ class HTSDataset(InMemoryDataset):
     @property
     def processed_file_names(self):
         match self.dataset_usage:
-            case DatasetUsage.DROnly | DatasetUsage.DRWithSDReadouts: name = 'dr'
-            case DatasetUsage.SDOnly: name = 'sd'
-            case DatasetUsage.DRWithSDLabels: name = 'dr_sd'
-            case _: raise ValueError("Unsupported DatasetUsage")
+            case DatasetUsage.DROnly | DatasetUsage.DRWithSDReadouts:
+                name = 'dr'
+            case DatasetUsage.SDOnly:
+                name = 'sd'
+            case DatasetUsage.DRWithSDLabels:
+                name = 'dr_sd'
+            case _:
+                raise ValueError("Unsupported DatasetUsage")
         return [f'processed_{name}_data.pt']
 
     def download(self):
@@ -53,7 +57,14 @@ class HTSDataset(InMemoryDataset):
     def process(self):
         DEFAULT_LOGGER.debug(f"Processing dataset at {self.root}")
         df = _read_data(Path(self.raw_paths[0]))
-        df = df[df[self.label_column].notnull()]
+        if self.dataset_usage == DatasetUsage.SDOnly or self.dataset_usage == DatasetUsage.DRWithSDLabels:
+            df = df[df['SD'].notnull()]
+        if (
+            self.dataset_usage == DatasetUsage.DROnly or
+            self.dataset_usage == DatasetUsage.DRWithSDLabels or
+            self.dataset_usage == DatasetUsage.DRWithSDReadouts
+        ):
+            df = df[df['DR'].notnull()]
         data_list = _process_data(
             df,
             label_col=self.label_column,
