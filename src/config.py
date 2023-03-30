@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 
@@ -16,11 +17,9 @@ EXPERIMENTS_DIR = ROOT_DIR / 'experiments'
 
 # Seeds used in https://chemrxiv.org/engage/chemrxiv/article-details/636fa49b80c9bfb4dc944c1c
 # From https://github.com/davidbuterez/mf-pcba
-MF_PCBA_SEEDS = {
-    "AID1445": [946067, 721263, 691383, 374914, 724299],
-    "AID504329": [966204, 681725, 635271, 220018, 548422],
-    "AID624330": [693665, 109746, 780835, 662995, 865845]
-}
+with open(ROOT_DIR / 'mf_pcba_seeds.json') as json_data:
+    MF_PCBA_SEEDS = json.load(json_data)
+    MF_PCBA_SEEDS = {'AID' + k: v for k, v in MF_PCBA_SEEDS.items()}
 
 # Parameters used in "Multi-fidelity machine learning models for improved high-throughput screening predictions"
 DEFAULT_LR = 1e-4
