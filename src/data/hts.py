@@ -7,7 +7,7 @@ import torch
 from torch import Tensor
 from torch_geometric.data import Data, InMemoryDataset
 
-from src.config import DATAFILE_NAME, DEFAULT_LOGGER
+from src.config import DEFAULT_LOGGER
 
 _MAX_ATOMIC_NUM = 80
 _N_FEATURES = _MAX_ATOMIC_NUM + 33
@@ -18,6 +18,21 @@ class DatasetUsage(Enum):
     DROnly = auto()
     DRWithSDLabels = auto()
     DRWithSDReadouts = auto()
+
+
+def requires_sd_data(usage: DatasetUsage) -> bool:
+    return (
+        usage == DatasetUsage.SDOnly or
+        usage == DatasetUsage.DRWithSDLabels
+    )
+
+
+def requires_dr_data(usage: DatasetUsage) -> bool:
+    return (
+        usage == DatasetUsage.DROnly or
+        usage == DatasetUsage.DRWithSDLabels or
+        usage == DatasetUsage.DRWithSDReadouts
+    )
 
 
 class HTSDataset(InMemoryDataset):
@@ -36,19 +51,20 @@ class HTSDataset(InMemoryDataset):
 
     @property
     def raw_file_names(self):
-        return [DATAFILE_NAME]
+        if requires_dr_data(self.dataset_usage) and (Path(self.raw_dir) / 'DR.csv').exists():
+            return ['DR.csv']  # DR data from separate file
+        else:
+            return ['SD.csv']  # DR data included in SD CSV file
 
     @property
     def processed_file_names(self):
-        match self.dataset_usage:
-            case DatasetUsage.DROnly | DatasetUsage.DRWithSDReadouts:
-                name = 'dr'
-            case DatasetUsage.SDOnly:
-                name = 'sd'
-            case DatasetUsage.DRWithSDLabels:
-                name = 'dr_sd'
-            case _:
-                raise ValueError("Unsupported DatasetUsage")
+        name = ''
+        if requires_dr_data(self.dataset_usage):
+            name += 'dr'
+        if requires_sd_data(self.dataset_usage):
+            if name:
+                name += '_'
+            name += 'sd'
         return [f'processed_{name}_data.pt']
 
     def download(self):
@@ -57,13 +73,9 @@ class HTSDataset(InMemoryDataset):
     def process(self):
         DEFAULT_LOGGER.debug(f"Processing dataset at {self.root}")
         df = _read_data(Path(self.raw_paths[0]))
-        if self.dataset_usage == DatasetUsage.SDOnly or self.dataset_usage == DatasetUsage.DRWithSDLabels:
+        if requires_sd_data(self.dataset_usage):
             df = df[df['SD'].notnull()]
-        if (
-            self.dataset_usage == DatasetUsage.DROnly or
-            self.dataset_usage == DatasetUsage.DRWithSDLabels or
-            self.dataset_usage == DatasetUsage.DRWithSDReadouts
-        ):
+        if requires_dr_data(self.dataset_usage):
             df = df[df['DR'].notnull()]
         data_list = _process_data(
             df,
