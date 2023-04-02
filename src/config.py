@@ -2,10 +2,10 @@ import json
 import logging
 from pathlib import Path
 
-DEFAULT_LOGGER = logging.getLogger("automl")
-DEFAULT_LOGGER.setLevel(logging.INFO)
+AUTOML_LOGGER = logging.getLogger("automl")
+AUTOML_LOGGER.setLevel(logging.INFO)
 _CONSOLE_HANDLER = logging.StreamHandler()
-DEFAULT_LOGGER.addHandler(_CONSOLE_HANDLER)
+AUTOML_LOGGER.addHandler(_CONSOLE_HANDLER)
 
 ROOT_DIR = Path(__file__).absolute().parent.parent
 DATASETS_DIR = ROOT_DIR / 'datasets'

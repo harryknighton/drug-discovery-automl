@@ -8,7 +8,7 @@ import tomli
 
 from src.config import LOG_DIR, DEFAULT_BATCH_SIZE, DEFAULT_LR, DEFAULT_EARLY_STOP_PATIENCE, \
     DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT, MF_PCBA_SEEDS, \
-    EXPERIMENTS_DIR, DEFAULT_PRECISION
+    EXPERIMENTS_DIR, DEFAULT_PRECISION, AUTOML_LOGGER
 from src.data.hts import DatasetUsage
 from src.data.scaling import fit_label_scaler, Scaler, StandardScaler, MinMaxScaler
 from src.data.utils import get_dataset, NamedLabelledDataset, BasicSplit, MFPCBA, KFolds, DatasetSplit
@@ -53,6 +53,7 @@ def main():
 
     experiment_dir = generate_experiment_dir(dataset, args['experiment_name'])
     experiment_type = config['type']
+    AUTOML_LOGGER.info(f"Starting experiment {args['experiment_name']} at {experiment_dir}")
     start = timeit.default_timer()
     if experiment_type == 'experiment':
         _experiment(experiment_dir, dataset, params, config['models'])
@@ -61,7 +62,7 @@ def main():
     else:
         raise ValueError(f"Unknown experiment type {experiment_type}")
     end = timeit.default_timer()
-    logging.info(f"Finished experiment in {end - start}s.")
+    AUTOML_LOGGER.info(f"Finished experiment in {end - start}s.")
 
 
 def _experiment(experiment_dir: Path, dataset: NamedLabelledDataset, params: HyperParameters, model_config: dict):

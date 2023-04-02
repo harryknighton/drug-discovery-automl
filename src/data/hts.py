@@ -7,7 +7,7 @@ import torch
 from torch import Tensor
 from torch_geometric.data import Data, InMemoryDataset
 
-from src.config import DEFAULT_LOGGER
+from src.config import AUTOML_LOGGER
 
 _MAX_ATOMIC_NUM = 80
 _N_FEATURES = _MAX_ATOMIC_NUM + 33
@@ -71,7 +71,7 @@ class HTSDataset(InMemoryDataset):
         pass
 
     def process(self):
-        DEFAULT_LOGGER.debug(f"Processing dataset at {self.root}")
+        AUTOML_LOGGER.debug(f"Processing dataset at {self.root}")
         df = _read_data(Path(self.raw_paths[0]))
         if requires_sd_data(self.dataset_usage):
             df = df[df['SD'].notnull()]

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.config import DEFAULT_LOGGER, LOG_DIR
+from src.config import AUTOML_LOGGER, LOG_DIR
 from src.data.hts import HTSDataset
 from src.data.utils import NamedLabelledDataset
 
@@ -39,7 +39,7 @@ def save_experiment_results(results, experiment_dir):
     architectures = df[['architectures']]
     measures = df.columns.get_level_values(1)
     logging_values = df.iloc[:, (measures == 'mean') | (measures == 'variance')]
-    DEFAULT_LOGGER.info(f"Experiment results: \n{architectures.to_string()}\n{logging_values.to_string()}")
+    AUTOML_LOGGER.info(f"Experiment results: \n{architectures.to_string()}\n{logging_values.to_string()}")
     df.to_csv(experiment_dir / 'results.csv', sep=';')  # Seperator other than comma due to architecture representation
 
 

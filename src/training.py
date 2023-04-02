@@ -12,7 +12,7 @@ from torch_geometric.data import LightningDataset
 from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
-from src.config import DEFAULT_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR
+from src.config import AUTOML_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR
 from src.data.scaling import Scaler
 from src.data.utils import DatasetSplit, NamedLabelledDataset, partition_dataset
 from src.metrics import DEFAULT_METRICS, analyse_results_distribution
@@ -100,7 +100,7 @@ def run_experiment(
     torch.set_float32_matmul_precision(params.precision)
     results = {}
     for run_id, architecture in enumerate(architectures):
-        DEFAULT_LOGGER.debug(f"Running experiment on architecture {architecture}")
+        AUTOML_LOGGER.debug(f"Running experiment on architecture {architecture}")
         run_results = perform_run(dataset, architecture, params, experiment_dir, run_name=str(run_id))
         results[str(architecture)] = analyse_results_distribution(run_results)
     save_experiment_results(results, experiment_dir)

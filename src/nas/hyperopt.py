@@ -9,7 +9,7 @@ import torch
 from hyperopt import hp
 from torch_geometric.data import LightningDataset, Dataset
 
-from src.config import DEFAULT_LOGGER, DEFAULT_SAVE_TRIALS_EVERY
+from src.config import AUTOML_LOGGER, DEFAULT_SAVE_TRIALS_EVERY
 from src.data.scaling import Scaler
 from src.data.utils import NamedLabelledDataset, BasicSplit, split_dataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
@@ -60,8 +60,8 @@ def search_hyperparameters(
         input_features=dataset.dataset.num_features,
         output_features=dataset.dataset.num_classes,
     )
-    DEFAULT_LOGGER.info(f"Best results: {trials.best_trial['result']['metrics']}")
-    DEFAULT_LOGGER.info(f"Best architecture: {best_architecture}")
+    AUTOML_LOGGER.info(f"Best results: {trials.best_trial['result']['metrics']}")
+    AUTOML_LOGGER.info(f"Best architecture: {best_architecture}")
 
 
 def construct_search_space(name: str):
@@ -95,7 +95,7 @@ def _prepare_objective(dataset: Dataset, label_scaler: Scaler, params: HyperPara
             objective.version = 0
         architecture = _convert_to_gnn_architecture(x, dataset.num_features, dataset.num_classes)
         model = GNN(architecture)
-        DEFAULT_LOGGER.debug("Evaluating architecture " + str(architecture))
+        AUTOML_LOGGER.debug("Evaluating architecture " + str(architecture))
         try:
             result = train_model(
                 model=model,
@@ -108,7 +108,7 @@ def _prepare_objective(dataset: Dataset, label_scaler: Scaler, params: HyperPara
                 save_checkpoints=False,
             )
         except RuntimeError as e:
-            DEFAULT_LOGGER.error(f"While training model error {e} was raised.")
+            AUTOML_LOGGER.error(f"While training model error {e} was raised.")
             return {'status': hyperopt.STATUS_FAIL}
         cpu_result = {k: v.item() for k, v in result.items()}
         del result  # Free up memory
@@ -137,11 +137,11 @@ def _convert_to_gnn_architecture(space: dict, input_features: int, output_featur
 def _load_trials(experiment_dir: Path) -> hyperopt.Trials:
     trials_path = experiment_dir / 'trials.pkl'
     if trials_path.exists():
-        DEFAULT_LOGGER.info(f"Loading existing trials from {trials_path}")
+        AUTOML_LOGGER.info(f"Loading existing trials from {trials_path}")
         with open(trials_path, 'rb') as file:
             return pickle.load(file)
     else:
-        DEFAULT_LOGGER.info("Creating new trial.")
+        AUTOML_LOGGER.info("Creating new trial.")
         return hyperopt.Trials()
 
 
