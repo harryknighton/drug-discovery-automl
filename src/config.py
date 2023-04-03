@@ -34,3 +34,6 @@ DEFAULT_TRAIN_VAL_SPLIT = 0.9
 
 DEFAULT_SAVE_TRIALS_EVERY = 100
 DEFAULT_PRECISION = 'medium'
+
+# Number of data samples to use for proxy calculation
+DEFAULT_PROXY_BATCH_SIZE = 64
