@@ -73,11 +73,6 @@ class JacobianCovariance(Proxy):
         return jacob
 
 
-class ZiCo(Proxy):
-    def calculate(self, model: GNNModule, dataset: Dataset) -> float:
-        pass
-
-
 class GradientNorm(Proxy):
     def calculate(self, model: GNNModule, dataset: Dataset) -> float:
         batch = next(iter(DataLoader(dataset, batch_size=self.num_samples, shuffle=False)))
@@ -92,5 +87,25 @@ class GradientNorm(Proxy):
 
 
 class Snip(Proxy):
+    def calculate(self, model: GNNModule, dataset: Dataset) -> float:
+        pass
+
+
+class Grasp(Proxy):
+    def calculate(self, model: GNNModule, dataset: Dataset) -> float:
+        pass
+
+
+class Fisher(Proxy):
+    def calculate(self, model: GNNModule, dataset: Dataset) -> float:
+        pass
+
+
+class ZiCo(Proxy):
+    def calculate(self, model: GNNModule, dataset: Dataset) -> float:
+        pass
+
+
+class NASI(Proxy):
     def calculate(self, model: GNNModule, dataset: Dataset) -> float:
         pass
