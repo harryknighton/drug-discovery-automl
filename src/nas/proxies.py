@@ -96,7 +96,14 @@ class GradientNorm(Proxy):
 
 class Snip(Proxy):
     def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        raise NotImplementedError()
+        batch = _get_data_samples(dataset, self.num_samples)
+        model.train()
+        weights = _get_model_weights(model)
+        preds = model(batch.x, batch.edge_index, batch.batch)
+        loss = mse_loss(preds, batch.y)
+        first_derivatives = autograd.grad(loss, weights, allow_unused=True)
+        snip_per_weight = [(weight * coefficients).abs().sum() for weight, coefficients in zip(weights, first_derivatives)]
+        return sum(snip_per_weight)
 
 
 class ZiCo(Proxy):
