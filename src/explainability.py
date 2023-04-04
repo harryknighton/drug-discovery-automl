@@ -1,12 +1,11 @@
-from typing import Any, List
+from typing import Any
 
-import numpy as np
 import torch
 from fast_pytorch_kmeans import KMeans
 from sklearn.metrics import mean_squared_error
 from sklearn.tree import DecisionTreeRegressor
 from torch import Tensor
-from torchmetrics import Metric
+from torchmetrics import Metric, MetricCollection
 
 from src.config import AUTOML_LOGGER
 from src.pytorchclustermetrics import silhouette_score
@@ -28,7 +27,7 @@ class ConceptCompleteness(Metric):
         self.targets = torch.cat((self.targets, target), dim=0)
 
     def compute(self) -> Tensor:
-        cluster_labels = cluster_graphs(self.encodings).cpu().numpy()
+        cluster_labels = cluster_graphs(self.encodings).reshape(-1, 1).cpu().numpy()
         targets = self.targets.cpu().numpy()
         decision_tree = DecisionTreeRegressor()
         decision_tree.fit(cluster_labels, targets)
@@ -36,7 +35,10 @@ class ConceptCompleteness(Metric):
         return torch.tensor(mean_squared_error(predictions, targets))
 
 
-def cluster_graphs(encodings: Tensor, max_clusters: int = 5) -> Tensor:
+DEFAULT_EXPLAINABILITY_METRICS = MetricCollection([ConceptCompleteness()])
+
+
+def cluster_graphs(encodings: Tensor, max_clusters: int = 10) -> Tensor:
     cluster_labels = []
     silhouette_scores = []
     wss_scores = []
@@ -50,8 +52,8 @@ def cluster_graphs(encodings: Tensor, max_clusters: int = 5) -> Tensor:
         silhouette_scores.append(silhouette)
         wss_scores.append(wss_score)
     # Choose best fit as the one with maximum silhouette score
-    best_index = np.ndarray(silhouette_scores).argmax()
-    _validate_kmeans(best_index, wss_scores)
+    best_index = torch.stack(silhouette_scores).argmax()
+    _validate_kmeans(best_index, torch.stack(wss_scores))
     return cluster_labels[best_index]
 
 
@@ -60,13 +62,13 @@ def _within_cluster_sum_squared_error(encodings: Tensor, centroids: Tensor, labe
     return torch.sum(differences ** 2)
 
 
-def _validate_kmeans(best_index: int, wss_scores: List[Tensor], elbow_tolerance: float = 0.5) -> None:
-    wss_gradients = np.diff(np.ndarray(wss_scores))
+def _validate_kmeans(best_index: int, wss_scores: Tensor, elbow_tolerance: float = 0.5) -> None:
+    wss_gradients = torch.diff(wss_scores)
     if 0 < best_index < len(wss_scores) - 1:
-        # Is elbow curve at best_index too smooth?
+        # Are we past the bend of the elbow?
         if wss_gradients[best_index - 1] * elbow_tolerance > wss_gradients[best_index]:
             AUTOML_LOGGER.warn('KMeans number of clusters may be too high')
     elif best_index == len(wss_scores) - 1:
-        # Is elbow curve still steep at best_index?
+        # Are we before the bend of the elbow?
         if wss_gradients[best_index - 2] * elbow_tolerance < wss_gradients[best_index - 1]:
             AUTOML_LOGGER.warn('KMeans number of clusters may be too low')

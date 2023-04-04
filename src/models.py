@@ -166,10 +166,17 @@ class GNN(GNNModule):
             self.blocks.append(block)
         self.regression_layer = RegressionLayer(architecture.regression_layer)
 
-    def forward(self, x: Tensor, edge_index: Tensor, batch: Tensor):
+    def encode(self, x: Tensor, edge_index: Tensor, batch: Tensor) -> Tensor:
         for block in self.blocks:
             x = block(x, edge_index, batch)
-        return self.regression_layer(x)
+        return x
+
+    def readout(self, encodings: Tensor) -> Tensor:
+        return self.regression_layer(encodings)
+
+    def forward(self, x: Tensor, edge_index: Tensor, batch: Tensor):
+        encodings = self.encode(x, edge_index, batch)
+        return self.readout(encodings)
 
 
 def _construct_layer(layer_type: LayerType, num_in: int, num_out: int) -> torch.nn.Module:

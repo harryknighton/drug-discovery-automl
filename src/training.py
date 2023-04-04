@@ -15,8 +15,9 @@ from torchmetrics import MetricCollection
 from src.config import AUTOML_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR
 from src.data.scaling import Scaler
 from src.data.utils import DatasetSplit, NamedLabelledDataset, partition_dataset
+from src.explainability import DEFAULT_EXPLAINABILITY_METRICS
 from src.metrics import DEFAULT_METRICS, analyse_results_distribution
-from src.models import GNNArchitecture, GNNModule, GNN
+from src.models import GNNArchitecture, GNN
 from src.nas.proxies import DEFAULT_PROXIES
 from src.reporting import generate_run_name, save_experiment_results, save_run_results
 
@@ -36,7 +37,14 @@ class HyperParameters:
 
 
 class LitGNN(tl.LightningModule):
-    def __init__(self, model: GNNModule, params: HyperParameters, metrics: MetricCollection, label_scaler: Scaler):
+    def __init__(
+        self,
+        model: GNN,
+        params: HyperParameters,
+        metrics: MetricCollection,
+        explainability_metrics: MetricCollection,
+        label_scaler: Scaler
+    ) -> None:
         super().__init__()
         self.model = model
         self.params = params
@@ -44,6 +52,7 @@ class LitGNN(tl.LightningModule):
         self.val_metrics = metrics.clone()
         self.test_metrics = metrics.clone()
         self.test_results = None
+        self.explainability_metrics = explainability_metrics.clone()
         self.label_scaler = label_scaler
         self.save_hyperparameters("params")
 
@@ -64,13 +73,18 @@ class LitGNN(tl.LightningModule):
         self.val_metrics.reset()
 
     def test_step(self, data, idx):
-        pred = self.model(data.x, data.edge_index, data.batch)
-        scaled_preds = self.label_scaler.inverse_transform(pred).flatten()
+        encodings = self.model.encode(data.x, data.edge_index, data.batch)
+        preds = self.model.readout(encodings)
+        scaled_preds = self.label_scaler.inverse_transform(preds).flatten()
         self.test_metrics.update(scaled_preds, data.y)
+        self.explainability_metrics.update(encodings, data.y)
 
     def test_epoch_end(self, outputs):
-        self.test_results = self.test_metrics.compute()
+        test_metrics = self.test_metrics.compute()
+        explainability_metrics = self.explainability_metrics.compute()
+        self.test_results = test_metrics | explainability_metrics
         self.test_metrics.reset()
+        self.explainability_metrics.reset()
 
     def configure_optimizers(self):
         optimiser = Adam(self.model.parameters(), lr=self.params.lr)
@@ -136,7 +150,7 @@ def perform_run(
 
 
 def train_model(
-    model: GNNModule,
+    model: GNN,
     params: HyperParameters,
     datamodule: LightningDataModule,
     label_scaler: Scaler,
@@ -146,7 +160,7 @@ def train_model(
     save_checkpoints: bool = True,
     test_on_validation: bool = False,  # If test data is needed after further optimisation
 ):
-    model = LitGNN(model, params, DEFAULT_METRICS, label_scaler)
+    lit_model = LitGNN(model, params, DEFAULT_METRICS, DEFAULT_EXPLAINABILITY_METRICS, label_scaler)
 
     callbacks = [EarlyStopping(
         monitor='loss_val',
@@ -186,12 +200,12 @@ def train_model(
         enable_model_summary=save_logs,
     )
 
-    trainer.fit(model, datamodule=datamodule)
+    trainer.fit(lit_model, datamodule=datamodule)
     test_dataloader = datamodule.val_dataloader() if test_on_validation else datamodule.test_dataloader()
-    trainer.test(model, test_dataloader)
-    result = model.test_results
+    trainer.test(lit_model, test_dataloader)
+    result = lit_model.test_results
 
     # Free-up memory
-    del model
+    del lit_model
 
     return result

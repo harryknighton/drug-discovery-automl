@@ -9,7 +9,7 @@ from torch import Tensor
 # https://gist.github.com/AlexandreAbraham/5544803  Avatar
 
 
-def silhouette_score(X: Tensor, labels: Tensor, loss: bool = False) -> float:
+def silhouette_score(X: Tensor, labels: Tensor, loss: bool = False) -> Tensor:
     """Compute the mean Silhouette Coefficient of all samples.
     The Silhouette Coefficient is calculated using the mean intra-cluster
     distance (a) and the mean nearest-cluster distance (b) for each sample.
@@ -67,7 +67,7 @@ https://gist.github.com/AlexandreAbraham/5544803  Avatar
     if loss:
         return - mean_sil_score
     else:
-        return float(mean_sil_score)
+        return mean_sil_score
 
 
 def _intra_cluster_distances_block(X: Tensor, labels: Tensor, unique_labels: Tensor) -> Tensor:
