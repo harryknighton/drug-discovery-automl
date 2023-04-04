@@ -57,8 +57,13 @@ class NumParams(Proxy):
 class SynFlow(Proxy):
     def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
         weights = _get_model_weights(model)
-        weights_product = torch.stack([weight.prod() for weight in weights]).prod()
-        first_derivatives = autograd.grad(weights_product, weights, create_graph=True, allow_unused=True)
+        preds = model(
+            x=torch.ones(1, dataset.num_features, dtype=torch.float),
+            edge_index=torch.tensor([[0], [0]], dtype=torch.long),
+            batch=torch.tensor([0], dtype=torch.long)
+        )
+        loss = preds.sum()
+        first_derivatives = autograd.grad(loss, weights, allow_unused=True)
         synflow_per_weight = [(weight * coefficients).sum() for weight, coefficients in zip(weights, first_derivatives)]
         return sum(synflow_per_weight)
 
