@@ -53,9 +53,9 @@ class NumParams(Proxy):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-class SynapticFlow(Proxy):
+class SynFlow(Proxy):
     def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        pass
+        raise NotImplementedError()
 
 # ----------------------------------------------
 # Data Dependent Proxies
@@ -95,35 +95,37 @@ class GradientNorm(Proxy):
 
 class Snip(Proxy):
     def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        pass
-
-
-class Grasp(Proxy):
-    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        pass
-
-
-class Fisher(Proxy):
-    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        pass
+        raise NotImplementedError()
 
 
 class ZiCo(Proxy):
     def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        pass
+        raise NotImplementedError()
 
 
 class NASI(Proxy):
     def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        pass
+        raise NotImplementedError()
+
+
+class Grasp(Proxy):
+    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+        raise NotImplementedError()
+
+
+class Fisher(Proxy):
+    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+        raise NotImplementedError()
 
 
 DEFAULT_PROXIES = ProxyCollection([
     NumParams(),
-    # SynapticFlow(),
+    # SynFlow(),
     GradientNorm(),
     JacobianCovariance(),
     # Snip(),
+    # ZiCo(),
+    # NASI(),
     # Grasp(),
     # Fisher()
 ])
