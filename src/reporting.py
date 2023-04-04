@@ -28,7 +28,7 @@ def generate_run_name():
     return datetime.now().strftime("%m-%d-%Y_%H-%M-%S")
 
 
-def save_experiment_results(results, experiment_dir):
+def save_experiment_results(results, experiment_dir: Path, filename: str):
     reformed_results = defaultdict(list)
     for architecture, metrics in results.items():
         reformed_results[('architectures',)].append(architecture)
@@ -40,11 +40,11 @@ def save_experiment_results(results, experiment_dir):
     measures = df.columns.get_level_values(1)
     logging_values = df.iloc[:, (measures == 'mean') | (measures == 'variance')]
     AUTOML_LOGGER.info(f"Experiment results: \n{architectures.to_string()}\n{logging_values.to_string()}")
-    df.to_csv(experiment_dir / 'results.csv', sep=';')  # Seperator other than comma due to architecture representation
+    df.to_csv(experiment_dir / (filename + '.csv'), sep=';')  # Comma separator used in architecture representation
 
 
-def save_run_results(results, run_dir):
-    filepath = run_dir / 'results.json'
+def save_run_results(results: dict[str, dict], run_dir: Path, filename: str):
+    filepath = run_dir / (filename + '.json')
     trial_results = {version: {k: float(v) for k, v in trial.items()} for version, trial in results.items()}
     with open(filepath, 'w') as out:
         json.dump(trial_results, out, indent=2)

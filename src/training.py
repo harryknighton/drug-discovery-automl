@@ -113,12 +113,15 @@ def run_experiment(
 ):
     """Perform a series of runs of different architectures and save the results"""
     torch.set_float32_matmul_precision(params.precision)
-    results = {}
+    proxies = {}
+    metrics = {}
     for run_id, architecture in enumerate(architectures):
         AUTOML_LOGGER.debug(f"Running experiment on architecture {architecture}")
-        run_results = perform_run(dataset, architecture, params, experiment_dir, run_name=str(run_id))
-        results[str(architecture)] = analyse_results_distribution(run_results)
-    save_experiment_results(results, experiment_dir)
+        run_proxies, run_metrics = perform_run(dataset, architecture, params, experiment_dir, run_name=str(run_id))
+        proxies[str(architecture)] = analyse_results_distribution(run_proxies)
+        metrics[str(architecture)] = analyse_results_distribution(run_metrics)
+    save_experiment_results(proxies, experiment_dir, 'proxies')
+    save_experiment_results(metrics, experiment_dir, 'metrics')
 
 
 def perform_run(
@@ -130,9 +133,10 @@ def perform_run(
 ):
     """Perform multiple runs using k-fold cross validation and return the average results"""
     run_dir = experiment_dir / (run_name if run_name is not None else generate_run_name())
-    run_results = {}
+    run_proxies = {}
+    run_metrics = {}
     for seed in params.random_seeds:
-        data_partitions = partition_dataset(dataset.dataset, params.dataset_split, seed)
+        data_partitions = partition_dataset(dataset, params.dataset_split, seed)
         for data_version, (train_dataset, val_dataset, test_dataset) in data_partitions:
             tl.seed_everything(seed, workers=True)
             version = f'S{seed}_D{data_version}'
@@ -141,12 +145,12 @@ def perform_run(
                 train_dataset, val_dataset, test_dataset,
                 batch_size=params.batch_size, num_workers=params.num_workers
             )
-            proxies = DEFAULT_PROXIES.compute(model, dataset.dataset)
-            metrics = train_model(model, params, datamodule, dataset.label_scaler, run_dir, version=version)
-            run_results[version] = proxies | metrics
+            run_proxies[version] = DEFAULT_PROXIES.compute(model, test_dataset)
+            run_metrics[version] = train_model(model, params, datamodule, dataset.label_scaler, run_dir, version=version)
 
-    save_run_results(run_results, run_dir)
-    return run_results
+    save_run_results(run_proxies, run_dir, 'proxies')
+    save_run_results(run_metrics, run_dir, 'metrics')
+    return run_proxies, run_metrics
 
 
 def train_model(

@@ -12,7 +12,7 @@ pooling_functions = ['ADD']
 
 [data]
 label_scaler = 'standard'
-# use_mf_pcba_splits = false
+# use_mf_pcba_splits = true
 # k_folds = 2
 num_workers = 0
 

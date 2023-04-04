@@ -54,18 +54,18 @@ def get_dataset(dataset_name: str, **kwargs: Any) -> Dataset:
         raise ValueError(f"Dataset {dataset_name} not recognised")
 
 
-def partition_dataset(dataset: Dataset, dataset_split: DatasetSplit, random_seed: Optional[int] = 0):
+def partition_dataset(dataset: NamedLabelledDataset, dataset_split: DatasetSplit, random_seed: Optional[int] = 0):
     if isinstance(dataset_split, MFPCBA):
         for seed in MF_PCBA_SEEDS[dataset.name]:
-            yield seed, mf_pcba_split(dataset, seed)
+            yield seed, mf_pcba_split(dataset.dataset, seed)
     elif isinstance(dataset_split, BasicSplit):
         np.random.seed(random_seed)
-        test_dataset, training_dataset = split_dataset(dataset, dataset_split.test_split)
+        test_dataset, training_dataset = split_dataset(dataset.dataset, dataset_split.test_split)
         train_dataset, val_dataset = split_dataset(training_dataset, dataset_split.train_val_split)
         yield 0, (train_dataset, val_dataset, test_dataset)
     elif isinstance(dataset_split, KFolds):
         np.random.seed(random_seed)
-        test_dataset, training_dataset = split_dataset(dataset, dataset_split.test_split)
+        test_dataset, training_dataset = split_dataset(dataset.dataset, dataset_split.test_split)
         for i, (train_dataset, val_dataset) in enumerate(k_folds(training_dataset, dataset_split.k)):
             yield i, (train_dataset, val_dataset, test_dataset)
     else:
