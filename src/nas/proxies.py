@@ -56,12 +56,9 @@ class NumParams(Proxy):
 
 class SynFlow(Proxy):
     def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        batch = _get_data_samples(dataset, self.num_samples)
-        model.train()
         weights = _get_model_weights(model)
-        preds = model(batch.x, batch.edge_index, batch.batch)
-        loss = mse_loss(preds, batch.y)
-        first_derivatives = autograd.grad(loss, weights, create_graph=True, allow_unused=True)
+        weights_product = torch.stack([weight.prod() for weight in weights]).prod()
+        first_derivatives = autograd.grad(weights_product, weights, create_graph=True, allow_unused=True)
         synflow_per_weight = [(weight * coefficients).sum() for weight, coefficients in zip(weights, first_derivatives)]
         return sum(synflow_per_weight)
 
@@ -148,7 +145,7 @@ class Fisher(Proxy):
 
 DEFAULT_PROXIES = ProxyCollection([
     NumParams(),
-    # SynFlow(),
+    SynFlow(),
     GradientNorm(),
     JacobianCovariance(),
     # Snip(),
