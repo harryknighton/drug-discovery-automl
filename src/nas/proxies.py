@@ -109,7 +109,7 @@ class Snip(Proxy):
         model.train()
         weights = _get_model_weights(model)
         preds = model(batch.x, batch.edge_index, batch.batch)
-        loss = mse_loss(preds, batch.y)
+        loss = mse_loss(preds.flatten(), batch.y)
         first_derivatives = autograd.grad(loss, weights, allow_unused=True)
         snip_per_weight = [(weight * coefficients).abs().sum() for weight, coefficients in zip(weights, first_derivatives)]
         return sum(snip_per_weight)
@@ -131,7 +131,7 @@ class Grasp(Proxy):
         model.train()
         weights = _get_model_weights(model)
         preds = model(batch.x, batch.edge_index, batch.batch)
-        loss = mse_loss(preds, batch.y)
+        loss = mse_loss(preds.flatten(), batch.y)
         # [dL/dw_i for i in len(weights)]
         first_derivatives = autograd.grad(loss, weights, create_graph=True, allow_unused=True)
         # (dL/dw_0)^2 + (dL/dw_1)^2 + ... + (dL/dw_n)^2
@@ -153,9 +153,8 @@ DEFAULT_PROXIES = ProxyCollection([
     SynFlow(),
     GradientNorm(),
     JacobianCovariance(),
-    # Snip(),
+    Snip(),
     # ZiCo(),
-    # NASI(),
     Grasp(),
     # Fisher()
 ])
