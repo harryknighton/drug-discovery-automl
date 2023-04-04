@@ -192,13 +192,13 @@ class Fisher(Proxy):
 
 
 DEFAULT_PROXIES = ProxyCollection([
-    # NumParams(),
-    # SynFlow(),
-    # GradientNorm(),
-    # JacobianCovariance(),
-    # Snip(),
-    # ZiCo(),
-    # Grasp(),
+    NumParams(),
+    SynFlow(),
+    GradientNorm(),
+    JacobianCovariance(),
+    Snip(),
+    ZiCo(),
+    Grasp(),
     Fisher()
 ])
 
