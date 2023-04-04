@@ -3,7 +3,8 @@ from typing import List
 
 import torch
 import torch_geometric.nn
-from torch import Tensor
+from torch import Tensor, autograd
+from torch.nn.functional import mse_loss
 from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import global_add_pool
@@ -110,7 +111,20 @@ class NASI(Proxy):
 
 class Grasp(Proxy):
     def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        raise NotImplementedError()
+        batch = _get_data_samples(dataset, self.num_samples)
+        model.train()
+        weights = _get_model_weights(model)
+        preds = model(batch.x, batch.edge_index, batch.batch)
+        loss = mse_loss(preds, batch.y)
+        # [dL/dw_i for i in len(weights)]
+        first_derivatives = autograd.grad(loss, weights, create_graph=True, allow_unused=True)
+        # (dL/dw_0)^2 + (dL/dw_1)^2 + ... + (dL/dw_n)^2
+        sum_derivatives_squared = sum([(derivative ** 2).sum() for derivative in first_derivatives])
+        # [sum(dL^2/d^2w_iw_j dL/dw_i for i in len(weights)) for j in len(weights)]
+        hessian_jacob_prod = autograd.grad(sum_derivatives_squared, weights, allow_unused=True)
+        # [Hessian * dL/dW * W for W in weights]
+        grasp_per_weight = [(weight * coefficients).sum() for weight, coefficients in zip(weights, hessian_jacob_prod)]
+        return sum(grasp_per_weight)
 
 
 class Fisher(Proxy):
@@ -126,10 +140,18 @@ DEFAULT_PROXIES = ProxyCollection([
     # Snip(),
     # ZiCo(),
     # NASI(),
-    # Grasp(),
+    Grasp(),
     # Fisher()
 ])
 
 
 def _get_data_samples(dataset: Dataset, num_samples: int) -> Data:
     return next(iter(DataLoader(dataset, batch_size=num_samples, shuffle=False)))
+
+
+def _get_model_weights(model: GNNModule) -> List[Tensor]:
+    weights = []
+    for module in model.modules():
+        if hasattr(module, 'weight') and module.weight.requires_grad:
+            weights.append(module.weight)
+    return weights
