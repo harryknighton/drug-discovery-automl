@@ -161,7 +161,7 @@ class Grasp(Proxy):
 class Fisher(Proxy):
     def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
         # Attach forward hook to capture activations
-        def activation_hook(module: Module, input: Tensor, output: Tensor) -> None:
+        def activation_hook(module: Module, _: Tensor, output: Tensor) -> None:
             module.activation = output
         linear_layers = _get_linear_layers(model)
         hook_handles = [layer.register_forward_hook(activation_hook) for layer in linear_layers]
@@ -207,6 +207,10 @@ def _get_data_samples(dataset: Dataset, num_samples: int) -> Data:
     return next(iter(DataLoader(dataset, batch_size=num_samples, shuffle=False)))
 
 
+def _get_model_weights(model: GNNModule) -> List[Tensor]:
+    return [layer.weight for layer in _get_linear_layers(model)]
+
+
 def _get_linear_layers(model: GNNModule) -> List[torch.nn.Linear | torch_geometric.nn.Linear]:
     return [
         module for module in model.modules()
@@ -214,9 +218,4 @@ def _get_linear_layers(model: GNNModule) -> List[torch.nn.Linear | torch_geometr
     ]
 
 
-def _get_model_weights(model: GNNModule) -> List[Tensor]:
-    weights = []
-    for module in model.modules():
-        if hasattr(module, 'weight') and module.weight.requires_grad:
-            weights.append(module.weight)
-    return weights
+
