@@ -117,7 +117,21 @@ class Snip(Proxy):
 
 class ZiCo(Proxy):
     def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        raise NotImplementedError()
+        batch = _get_data_samples(dataset, self.num_samples)
+        weights = _get_model_weights(model)
+        model.train()
+        preds = model(batch.x, batch.edge_index, batch.batch)
+        loss = mse_loss(preds.flatten(), batch.y)
+        gradients = autograd.grad(loss, weights, allow_unused=True)
+        gradient_means = [gradient.abs().mean(dim=0) for gradient in gradients]
+        gradient_stds = [gradient.std(dim=0).nan_to_num() for gradient in gradients]
+        non_zero_idxs = [gradient_std != 0 for gradient_std in gradient_stds]
+        layer_inverse_coefficients_of_variation = [
+            (means[mask] / stds[mask]).sum().log()
+            for means, stds, mask in zip(gradient_means, gradient_stds, non_zero_idxs)
+            if mask.any()
+        ]
+        return sum(layer_inverse_coefficients_of_variation)
 
 
 class NASI(Proxy):
@@ -154,7 +168,7 @@ DEFAULT_PROXIES = ProxyCollection([
     GradientNorm(),
     JacobianCovariance(),
     Snip(),
-    # ZiCo(),
+    ZiCo(),
     Grasp(),
     # Fisher()
 ])
