@@ -4,6 +4,7 @@ from typing import List
 import torch
 import torch_geometric.nn
 from torch import Tensor, autograd
+from torch.nn import Module
 from torch.nn.functional import mse_loss
 from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
@@ -159,23 +160,58 @@ class Grasp(Proxy):
 
 class Fisher(Proxy):
     def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        raise NotImplementedError()
+        # Attach forward hook to capture activations
+        def activation_hook(module: Module, input: Tensor, output: Tensor) -> None:
+            module.activation = output
+        linear_layers = _get_linear_layers(model)
+        hook_handles = [layer.register_forward_hook(activation_hook) for layer in linear_layers]
+
+        # Run data through model to calculate activations
+        model.train()
+        batch = _get_data_samples(dataset, self.num_samples)
+        preds = model(batch.x, batch.edge_index, batch.batch)
+        loss = mse_loss(preds.flatten(), batch.y)
+
+        # Fetch activations and gradients of the loss w.r.t to them
+        activations = [layer.activation for layer in linear_layers]
+        gradients = autograd.grad(loss, activations)
+        saliency_per_activation = []
+        for activation, gradient in zip(activations, gradients):
+            if activation.size(0) > self.num_samples:  # Activation is before pooling
+                activation = global_add_pool(activation, batch.batch)
+                gradient = global_add_pool(gradient, batch.batch)
+            saliency = torch.pow(gradient * activation, 2).mean(0).sum()
+            saliency_per_activation.append(saliency)
+
+        # Restore state of model
+        for handle in hook_handles:
+            handle.remove()
+        for layer in linear_layers:
+            del layer.activation
+        return sum(saliency_per_activation)
 
 
 DEFAULT_PROXIES = ProxyCollection([
-    NumParams(),
-    SynFlow(),
-    GradientNorm(),
-    JacobianCovariance(),
-    Snip(),
-    ZiCo(),
-    Grasp(),
-    # Fisher()
+    # NumParams(),
+    # SynFlow(),
+    # GradientNorm(),
+    # JacobianCovariance(),
+    # Snip(),
+    # ZiCo(),
+    # Grasp(),
+    Fisher()
 ])
 
 
 def _get_data_samples(dataset: Dataset, num_samples: int) -> Data:
     return next(iter(DataLoader(dataset, batch_size=num_samples, shuffle=False)))
+
+
+def _get_linear_layers(model: GNNModule) -> List[torch.nn.Linear | torch_geometric.nn.Linear]:
+    return [
+        module for module in model.modules()
+        if isinstance(module, torch.nn.Linear) or isinstance(module, torch_geometric.nn.Linear)
+    ]
 
 
 def _get_model_weights(model: GNNModule) -> List[Tensor]:
