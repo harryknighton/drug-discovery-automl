@@ -145,7 +145,7 @@ def perform_run(
                 train_dataset, val_dataset, test_dataset,
                 batch_size=params.batch_size, num_workers=params.num_workers
             )
-            run_proxies[version] = DEFAULT_PROXIES.compute(model, dataset.dataset)
+            run_proxies[version] = DEFAULT_PROXIES(model, dataset.dataset)
             run_metrics[version] = train_model(model, params, datamodule, dataset.label_scaler, run_dir, version=version)
 
     save_run_results(run_proxies, run_dir, 'proxies')

@@ -1,3 +1,4 @@
+import copy
 from abc import ABC
 from typing import List
 
@@ -20,11 +21,14 @@ class Proxy(ABC):
     def __init__(self) -> None:
         self.num_samples = DEFAULT_PROXY_BATCH_SIZE
 
-    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
         pass
 
     def __call__(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        return self.compute(model, dataset)
+        model_copy = copy.deepcopy(model)
+        model_copy.zero_grad()
+        model_copy.train()
+        return self._compute(model_copy, dataset)
 
 
 class ProxyCollection(Proxy):
@@ -32,7 +36,7 @@ class ProxyCollection(Proxy):
         super(ProxyCollection, self).__init__()
         self.proxies = proxies
 
-    def compute(self, model: GNNModule, dataset: Dataset) -> dict[str, float]:
+    def _compute(self, model: GNNModule, dataset: Dataset) -> dict[str, float]:
         return {proxy.__class__.__name__: proxy(model, dataset) for proxy in self.proxies}
 
 
@@ -41,7 +45,7 @@ class MajorityVote(Proxy):
         super(Proxy, self).__init__()
         self.proxies = proxies
 
-    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
         results = [proxy(model, dataset) for proxy in self.proxies]
         return sum(results) / len(results)
 
@@ -51,12 +55,12 @@ class MajorityVote(Proxy):
 
 
 class NumParams(Proxy):
-    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
 class SynFlow(Proxy):
-    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
         weights = _get_model_weights(model)
         preds = model(
             x=torch.ones(1, dataset.num_features, dtype=torch.float),
@@ -73,7 +77,7 @@ class SynFlow(Proxy):
 
 
 class JacobianCovariance(Proxy):
-    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
         batch = _get_data_samples(dataset, self.num_samples)
         jacobian = self._compute_jacobian(model, batch)
         correlations = torch.corrcoef(jacobian)
@@ -92,9 +96,8 @@ class JacobianCovariance(Proxy):
 
 
 class GradientNorm(Proxy):
-    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
         batch = _get_data_samples(dataset, self.num_samples)
-        model.train()
         preds = model(batch.x, batch.edge_index, batch.batch)
         preds.backward(torch.ones_like(preds))
         gradient_norm = torch.tensor(0, dtype=torch.float)
@@ -105,9 +108,8 @@ class GradientNorm(Proxy):
 
 
 class Snip(Proxy):
-    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
         batch = _get_data_samples(dataset, self.num_samples)
-        model.train()
         weights = _get_model_weights(model)
         preds = model(batch.x, batch.edge_index, batch.batch)
         loss = mse_loss(preds.flatten(), batch.y)
@@ -117,10 +119,9 @@ class Snip(Proxy):
 
 
 class ZiCo(Proxy):
-    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
         batch = _get_data_samples(dataset, self.num_samples)
         weights = _get_model_weights(model)
-        model.train()
         preds = model(batch.x, batch.edge_index, batch.batch)
         loss = mse_loss(preds.flatten(), batch.y)
         gradients = autograd.grad(loss, weights, allow_unused=True)
@@ -136,14 +137,13 @@ class ZiCo(Proxy):
 
 
 class NASI(Proxy):
-    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
         raise NotImplementedError()
 
 
 class Grasp(Proxy):
-    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
         batch = _get_data_samples(dataset, self.num_samples)
-        model.train()
         weights = _get_model_weights(model)
         preds = model(batch.x, batch.edge_index, batch.batch)
         loss = mse_loss(preds.flatten(), batch.y)
@@ -159,7 +159,7 @@ class Grasp(Proxy):
 
 
 class Fisher(Proxy):
-    def compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
         # Attach forward hook to capture activations
         def activation_hook(module: Module, _: Tensor, output: Tensor) -> None:
             module.activation = output
@@ -167,7 +167,6 @@ class Fisher(Proxy):
         hook_handles = [layer.register_forward_hook(activation_hook) for layer in linear_layers]
 
         # Run data through model to calculate activations
-        model.train()
         batch = _get_data_samples(dataset, self.num_samples)
         preds = model(batch.x, batch.edge_index, batch.batch)
         loss = mse_loss(preds.flatten(), batch.y)
