@@ -42,7 +42,7 @@ def main():
         random_seeds=config['seeds'],
         dataset_split=dataset_split,
         batch_size=DEFAULT_BATCH_SIZE,
-        early_stop_patience=DEFAULT_EARLY_STOP_PATIENCE,
+        early_stop_patience=config['training'].get('early_stop_patience'),
         early_stop_min_delta=DEFAULT_EARLY_STOP_DELTA,
         lr=DEFAULT_LR,
         max_epochs=config['training']['max_epochs'],

@@ -18,3 +18,4 @@ num_workers = 0
 
 [training]
 max_epochs = 1
+early_stop_patience = 30

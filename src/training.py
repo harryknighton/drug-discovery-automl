@@ -5,6 +5,7 @@ from typing import List, Optional, Type
 import torch
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
+from torch import Tensor
 from torch.nn import MSELoss
 from torch.optim import Adam
 import pytorch_lightning as tl
@@ -163,16 +164,17 @@ def train_model(
     save_logs: bool = True,
     save_checkpoints: bool = True,
     test_on_validation: bool = False,  # If test data is needed after further optimisation
-):
+) -> dict[str, Tensor]:
     lit_model = LitGNN(model, params, DEFAULT_METRICS, DEFAULT_EXPLAINABILITY_METRICS, label_scaler)
 
-    callbacks = [EarlyStopping(
-        monitor='loss_val',
-        mode='min',
-        patience=params.early_stop_patience,
-        min_delta=params.early_stop_min_delta
-    )]
-
+    callbacks = []
+    if params.early_stop_patience > 0:
+        callbacks.append(EarlyStopping(
+            monitor='loss_val',
+            mode='min',
+            patience=params.early_stop_patience,
+            min_delta=params.early_stop_min_delta
+        ))
     if save_checkpoints:
         callbacks.append(ModelCheckpoint(
             # filename='{epoch:02d}-{loss_val:.2f}',
