@@ -28,7 +28,7 @@ class Proxy(ABC):
         model_copy = copy.deepcopy(model)
         model_copy.zero_grad()
         model_copy.train()
-        return self._compute(model_copy, dataset)
+        return self._compute(model_copy, dataset).detach()
 
 
 class ProxyCollection(Proxy):
@@ -38,6 +38,9 @@ class ProxyCollection(Proxy):
 
     def _compute(self, model: GNNModule, dataset: Dataset) -> dict[str, float]:
         return {proxy.__class__.__name__: proxy(model, dataset) for proxy in self.proxies}
+
+    def __call__(self, model: GNNModule, dataset: Dataset) -> dict[str, float]:
+        return self._compute(model, dataset)
 
 
 class MajorityVote(Proxy):
@@ -56,7 +59,7 @@ class MajorityVote(Proxy):
 
 class NumParams(Proxy):
     def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        return sum(p.numel() for p in model.parameters() if p.requires_grad)
+        return torch.tensor(sum(p.numel() for p in model.parameters() if p.requires_grad))
 
 
 class SynFlow(Proxy):
