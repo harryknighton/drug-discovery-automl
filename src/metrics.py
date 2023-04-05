@@ -71,3 +71,7 @@ def analyse_results_distribution(results: dict[str | int, Metrics]) -> dict[str,
             'max': percentiles[4]
         }
     return metrics
+
+
+def detach_metrics(metrics: Metrics) -> Metrics:
+    return {k: v.detach() for k, v in metrics.items()}

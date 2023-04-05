@@ -17,7 +17,7 @@ from src.config import AUTOML_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PL
 from src.data.scaling import Scaler
 from src.data.utils import DatasetSplit, NamedLabelledDataset, partition_dataset
 from src.explainability import DEFAULT_EXPLAINABILITY_METRICS
-from src.metrics import DEFAULT_METRICS, analyse_results_distribution
+from src.metrics import DEFAULT_METRICS, analyse_results_distribution, detach_metrics
 from src.models import GNNArchitecture, GNN
 from src.nas.proxies import DEFAULT_PROXIES
 from src.reporting import generate_run_name, save_experiment_results, save_run_results
@@ -71,7 +71,7 @@ class LitGNN(tl.LightningModule):
         self.val_metrics.update(scaled_preds, data.y)
 
     def validation_epoch_end(self, outputs) -> None:
-        self.log_dict(self.val_metrics.compute())
+        self.log_dict(detach_metrics(self.val_metrics.compute()))
         self.val_metrics.reset()
 
     def test_step(self, data, idx) -> None:
@@ -84,7 +84,7 @@ class LitGNN(tl.LightningModule):
     def test_epoch_end(self, outputs) -> None:
         test_metrics = self.test_metrics.compute()
         explainability_metrics = self.explainability_metrics.compute()
-        self.test_results = test_metrics | explainability_metrics
+        self.test_results = detach_metrics(test_metrics | explainability_metrics)
         self.test_metrics.reset()
         self.explainability_metrics.reset()
 
@@ -108,10 +108,10 @@ class LitGNN(tl.LightningModule):
 
 
 def run_experiment(
-        experiment_dir: Path,
-        dataset: NamedLabelledDataset,
-        architectures: List[GNNArchitecture],
-        params: HyperParameters,
+    experiment_dir: Path,
+    dataset: NamedLabelledDataset,
+    architectures: List[GNNArchitecture],
+    params: HyperParameters,
 ) -> None:
     """Perform a series of runs of different architectures and save the results"""
     torch.set_float32_matmul_precision(params.precision)
@@ -147,7 +147,7 @@ def perform_run(
                 train_dataset, val_dataset, test_dataset,
                 batch_size=params.batch_size, num_workers=params.num_workers
             )
-            run_proxies[version] = DEFAULT_PROXIES(model, dataset.dataset)
+            run_proxies[version] = detach_metrics(DEFAULT_PROXIES(model, dataset.dataset))
             run_metrics[version] = train_model(model, params, datamodule, dataset.label_scaler, run_dir, version=version)
 
     save_run_results(run_proxies, run_dir, 'proxies')
