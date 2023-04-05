@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Type
+from typing import List, Optional, Type, Tuple, Any
 
 import torch
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
@@ -21,6 +21,7 @@ from src.metrics import DEFAULT_METRICS, analyse_results_distribution
 from src.models import GNNArchitecture, GNN
 from src.nas.proxies import DEFAULT_PROXIES
 from src.reporting import generate_run_name, save_experiment_results, save_run_results
+from src.types import Metrics
 
 
 @dataclass
@@ -57,37 +58,37 @@ class LitGNN(tl.LightningModule):
         self.label_scaler = label_scaler
         self.save_hyperparameters("params")
 
-    def training_step(self, data, idx):
+    def training_step(self, data, idx) -> Tensor:
         pred = self.model(data.x, data.edge_index, data.batch)
         scaled_preds = self.label_scaler.inverse_transform(pred).flatten()
         loss = self._report_loss(scaled_preds, data.y, 'train')
         return loss
 
-    def validation_step(self, data, idx):
+    def validation_step(self, data, idx) -> None:
         pred = self.model(data.x, data.edge_index, data.batch)
         scaled_preds = self.label_scaler.inverse_transform(pred).flatten()
         self._report_loss(scaled_preds, data.y, 'val')
         self.val_metrics.update(scaled_preds, data.y)
 
-    def validation_epoch_end(self, outputs):
+    def validation_epoch_end(self, outputs) -> None:
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    def test_step(self, data, idx):
+    def test_step(self, data, idx) -> None:
         encodings = self.model.encode(data.x, data.edge_index, data.batch)
         preds = self.model.readout(encodings)
         scaled_preds = self.label_scaler.inverse_transform(preds).flatten()
         self.test_metrics.update(scaled_preds, data.y)
         self.explainability_metrics.update(encodings, data.y)
 
-    def test_epoch_end(self, outputs):
+    def test_epoch_end(self, outputs) -> None:
         test_metrics = self.test_metrics.compute()
         explainability_metrics = self.explainability_metrics.compute()
         self.test_results = test_metrics | explainability_metrics
         self.test_metrics.reset()
         self.explainability_metrics.reset()
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> dict[str, Any]:
         optimiser = Adam(self.model.parameters(), lr=self.params.lr)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimiser,
@@ -100,7 +101,7 @@ class LitGNN(tl.LightningModule):
             'monitor': 'loss_val',
         }
 
-    def _report_loss(self, pred, y, prefix):
+    def _report_loss(self, pred, y, prefix) -> Tensor:
         loss = self.loss(pred, y)
         self.log('loss_' + prefix, loss, batch_size=y.shape[0])
         return loss
@@ -111,7 +112,7 @@ def run_experiment(
         dataset: NamedLabelledDataset,
         architectures: List[GNNArchitecture],
         params: HyperParameters,
-):
+) -> None:
     """Perform a series of runs of different architectures and save the results"""
     torch.set_float32_matmul_precision(params.precision)
     proxies = {}
@@ -131,7 +132,7 @@ def perform_run(
     params: HyperParameters,
     experiment_dir: Path,
     run_name: Optional[str] = None,
-):
+) -> Tuple[dict[str, Metrics], dict[str, Metrics]]:
     """Perform multiple runs using k-fold cross validation and return the average results"""
     run_dir = experiment_dir / (run_name if run_name is not None else generate_run_name())
     run_proxies = {}
@@ -164,7 +165,7 @@ def train_model(
     save_logs: bool = True,
     save_checkpoints: bool = True,
     test_on_validation: bool = False,  # If test data is needed after further optimisation
-) -> dict[str, Tensor]:
+) -> Metrics:
     lit_model = LitGNN(model, params, DEFAULT_METRICS, DEFAULT_EXPLAINABILITY_METRICS, label_scaler)
 
     callbacks = []

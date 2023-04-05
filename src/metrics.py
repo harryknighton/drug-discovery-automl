@@ -5,6 +5,8 @@ import torch
 from torch import Tensor
 from torchmetrics import PearsonCorrCoef, MeanSquaredError, Metric, MetricCollection, MeanAbsoluteError, R2Score
 
+from src.types import Metrics
+
 
 class PearsonCorrCoefSquared(PearsonCorrCoef):
     """Provides an alternative implementation of R^2"""
@@ -47,7 +49,7 @@ DEFAULT_METRICS = MetricCollection([
 ])
 
 
-def analyse_results_distribution(results: dict[str | int, dict[str, float]]) -> dict[str, dict]:
+def analyse_results_distribution(results: dict[str | int, Metrics]) -> dict[str, Metrics]:
     """Calculate the distribution of results over all random seeds and data splits for a run"""
     assert len(results) > 0
     run_metrics = list(results.values())

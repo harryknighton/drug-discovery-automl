@@ -6,7 +6,7 @@ from typing import Optional, Type, List
 
 import tomli
 
-from src.config import LOG_DIR, DEFAULT_BATCH_SIZE, DEFAULT_LR, DEFAULT_EARLY_STOP_PATIENCE, \
+from src.config import LOG_DIR, DEFAULT_BATCH_SIZE, DEFAULT_LR, \
     DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT, MF_PCBA_SEEDS, \
     EXPERIMENTS_DIR, DEFAULT_PRECISION, AUTOML_LOGGER
 from src.data.hts import DatasetUsage

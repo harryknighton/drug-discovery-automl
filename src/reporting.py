@@ -9,6 +9,7 @@ import pandas as pd
 from src.config import AUTOML_LOGGER, LOG_DIR
 from src.data.hts import HTSDataset
 from src.data.utils import NamedLabelledDataset
+from src.types import Metrics
 
 
 def generate_experiment_dir(dataset: NamedLabelledDataset, experiment_name: str) -> Path:
@@ -24,11 +25,11 @@ def generate_experiment_dir(dataset: NamedLabelledDataset, experiment_name: str)
     return version_dir
 
 
-def generate_run_name():
+def generate_run_name() -> str:
     return datetime.now().strftime("%m-%d-%Y_%H-%M-%S")
 
 
-def save_experiment_results(results, experiment_dir: Path, filename: str):
+def save_experiment_results(results, experiment_dir: Path, filename: str) -> None:
     reformed_results = defaultdict(list)
     for architecture, metrics in results.items():
         reformed_results[('architectures',)].append(architecture)
@@ -43,14 +44,14 @@ def save_experiment_results(results, experiment_dir: Path, filename: str):
     df.to_csv(experiment_dir / (filename + '.csv'), sep=';')  # Comma separator used in architecture representation
 
 
-def save_run_results(results: dict[str, dict], run_dir: Path, filename: str):
+def save_run_results(results: dict[str, Metrics], run_dir: Path, filename: str) -> None:
     filepath = run_dir / (filename + '.json')
     trial_results = {version: {k: float(v) for k, v in trial.items()} for version, trial in results.items()}
     with open(filepath, 'w') as out:
         json.dump(trial_results, out, indent=2)
 
 
-def load_architecture(run_dir):
+def load_architecture(run_dir) -> None:
     filepath = run_dir / 'architecture.pkl'
     with open(filepath, 'rb') as file:
         return pickle.load(file)

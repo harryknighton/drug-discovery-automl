@@ -13,6 +13,7 @@ from torch_geometric.nn import global_add_pool
 
 from src.config import DEFAULT_PROXY_BATCH_SIZE
 from src.models import GNNModule
+from src.types import Metrics
 
 
 class Proxy(ABC):
@@ -36,10 +37,10 @@ class ProxyCollection(Proxy):
         super(ProxyCollection, self).__init__()
         self.proxies = proxies
 
-    def _compute(self, model: GNNModule, dataset: Dataset) -> dict[str, float]:
+    def _compute(self, model: GNNModule, dataset: Dataset) -> Metrics:
         return {proxy.__class__.__name__: proxy(model, dataset) for proxy in self.proxies}
 
-    def __call__(self, model: GNNModule, dataset: Dataset) -> dict[str, float]:
+    def __call__(self, model: GNNModule, dataset: Dataset) -> Metrics:
         return self._compute(model, dataset)
 
 
