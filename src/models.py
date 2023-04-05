@@ -151,19 +151,18 @@ class RegressionLayer(torch.nn.Module):
 class GNN(GNNModule):
     def __init__(self, architecture: GNNArchitecture):
         super(GNN, self).__init__()
-        self.blocks = ModuleList()
         num_layers = len(architecture.layer_types)
-        for i in range(num_layers):
-            pooling = architecture.pool_func if i == num_layers - 1 else None
-            block = GraphBlock(
+        self.blocks = ModuleList([
+            GraphBlock(
                 layer_type=architecture.layer_types[i],
                 in_features=architecture.features[i],
                 out_features=architecture.features[i+1],
-                pooling=pooling,
+                pooling=architecture.pool_func if i == num_layers - 1 else None,
                 normalise=architecture.batch_normalise[i],
                 activation=architecture.activation_funcs[i]
             )
-            self.blocks.append(block)
+            for i in range(num_layers)
+        ])
         self.regression_layer = RegressionLayer(architecture.regression_layer)
 
     def encode(self, x: Tensor, edge_index: Tensor, batch: Tensor) -> Tensor:
