@@ -12,6 +12,7 @@ from torch_geometric.loader import DataLoader
 from torch_geometric.nn import global_add_pool
 
 from src.config import DEFAULT_PROXY_BATCH_SIZE
+from src.data.utils import NamedLabelledDataset
 from src.models import GNNModule
 from src.types import Metrics
 
@@ -22,10 +23,10 @@ class Proxy(ABC):
     def __init__(self) -> None:
         self.num_samples = DEFAULT_PROXY_BATCH_SIZE
 
-    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         pass
 
-    def __call__(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def __call__(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         model_copy = copy.deepcopy(model)
         model_copy.zero_grad()
         model_copy.train()
@@ -37,10 +38,10 @@ class ProxyCollection(Proxy):
         super(ProxyCollection, self).__init__()
         self.proxies = proxies
 
-    def _compute(self, model: GNNModule, dataset: Dataset) -> Metrics:
+    def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Metrics:
         return {proxy.__class__.__name__: proxy(model, dataset) for proxy in self.proxies}
 
-    def __call__(self, model: GNNModule, dataset: Dataset) -> Metrics:
+    def __call__(self, model: GNNModule, dataset: NamedLabelledDataset) -> Metrics:
         return self._compute(model, dataset)
 
 
@@ -49,7 +50,7 @@ class MajorityVote(Proxy):
         super(Proxy, self).__init__()
         self.proxies = proxies
 
-    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         results = [proxy(model, dataset) for proxy in self.proxies]
         return sum(results) / len(results)
 
@@ -59,15 +60,15 @@ class MajorityVote(Proxy):
 
 
 class NumParams(Proxy):
-    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         return torch.tensor(sum(p.numel() for p in model.parameters() if p.requires_grad))
 
 
 class SynFlow(Proxy):
-    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         weights = _get_model_weights(model)
         preds = model(
-            x=torch.ones(1, dataset.num_features, dtype=torch.float),
+            x=torch.ones(1, dataset.dataset.num_features, dtype=torch.float),
             edge_index=torch.tensor([[0], [0]], dtype=torch.long),
             batch=torch.tensor([0], dtype=torch.long)
         )
@@ -81,8 +82,8 @@ class SynFlow(Proxy):
 
 
 class JacobianCovariance(Proxy):
-    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        batch = _get_data_samples(dataset, self.num_samples)
+    def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
+        batch = _get_data_samples(dataset.dataset, self.num_samples)
         jacobian = self._compute_jacobian(model, batch)
         correlations = torch.corrcoef(jacobian)
         _, log_determinant = torch.slogdet(correlations)
@@ -100,8 +101,8 @@ class JacobianCovariance(Proxy):
 
 
 class GradientNorm(Proxy):
-    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        batch = _get_data_samples(dataset, self.num_samples)
+    def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
+        batch = _get_data_samples(dataset.dataset, self.num_samples)
         preds = model(batch.x, batch.edge_index, batch.batch)
         preds.backward(torch.ones_like(preds))
         gradient_norm = torch.tensor(0, dtype=torch.float)
@@ -112,22 +113,24 @@ class GradientNorm(Proxy):
 
 
 class Snip(Proxy):
-    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        batch = _get_data_samples(dataset, self.num_samples)
+    def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
+        batch = _get_data_samples(dataset.dataset, self.num_samples)
         weights = _get_model_weights(model)
         preds = model(batch.x, batch.edge_index, batch.batch)
-        loss = mse_loss(preds.flatten(), batch.y)
+        scaled_preds = dataset.label_scaler.inverse_transform(preds)
+        loss = mse_loss(scaled_preds.flatten(), batch.y)
         first_derivatives = autograd.grad(loss, weights, allow_unused=True)
         snip_per_weight = [(weight * coefficients).abs().sum() for weight, coefficients in zip(weights, first_derivatives)]
         return sum(snip_per_weight)
 
 
 class ZiCo(Proxy):
-    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        batch = _get_data_samples(dataset, self.num_samples)
+    def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
+        batch = _get_data_samples(dataset.dataset, self.num_samples)
         weights = _get_model_weights(model)
         preds = model(batch.x, batch.edge_index, batch.batch)
-        loss = mse_loss(preds.flatten(), batch.y)
+        scaled_preds = dataset.label_scaler.inverse_transform(preds)
+        loss = mse_loss(scaled_preds.flatten(), batch.y)
         gradients = autograd.grad(loss, weights, allow_unused=True)
         gradient_means = [gradient.abs().mean(dim=0) for gradient in gradients]
         gradient_stds = [gradient.std(dim=0).nan_to_num() for gradient in gradients]
@@ -141,16 +144,17 @@ class ZiCo(Proxy):
 
 
 class NASI(Proxy):
-    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         raise NotImplementedError()
 
 
 class Grasp(Proxy):
-    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
-        batch = _get_data_samples(dataset, self.num_samples)
+    def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
+        batch = _get_data_samples(dataset.dataset, self.num_samples)
         weights = _get_model_weights(model)
         preds = model(batch.x, batch.edge_index, batch.batch)
-        loss = mse_loss(preds.flatten(), batch.y)
+        scaled_preds = dataset.label_scaler.inverse_transform(preds)
+        loss = mse_loss(scaled_preds.flatten(), batch.y)
         # [dL/dw_i for i in len(weights)]
         first_derivatives = autograd.grad(loss, weights, create_graph=True, allow_unused=True)
         # (dL/dw_0)^2 + (dL/dw_1)^2 + ... + (dL/dw_n)^2
@@ -163,7 +167,7 @@ class Grasp(Proxy):
 
 
 class Fisher(Proxy):
-    def _compute(self, model: GNNModule, dataset: Dataset) -> Tensor:
+    def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         # Attach forward hook to capture activations
         def activation_hook(module: Module, _: Tensor, output: Tensor) -> None:
             module.activation = output
@@ -171,9 +175,10 @@ class Fisher(Proxy):
         hook_handles = [layer.register_forward_hook(activation_hook) for layer in linear_layers]
 
         # Run data through model to calculate activations
-        batch = _get_data_samples(dataset, self.num_samples)
+        batch = _get_data_samples(dataset.dataset, self.num_samples)
         preds = model(batch.x, batch.edge_index, batch.batch)
-        loss = mse_loss(preds.flatten(), batch.y)
+        scaled_preds = dataset.label_scaler.inverse_transform(preds)
+        loss = mse_loss(scaled_preds.flatten(), batch.y)
 
         # Fetch activations and gradients of the loss w.r.t to them
         activations = [layer.activation for layer in linear_layers]
