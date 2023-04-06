@@ -1,3 +1,4 @@
+import random
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Type, Tuple, Any
@@ -13,7 +14,7 @@ from torch_geometric.data import LightningDataset
 from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
-from src.config import AUTOML_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR
+from src.config import AUTOML_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR, MAX_SEED, MIN_SEED
 from src.data.scaling import Scaler
 from src.data.utils import DatasetSplit, NamedLabelledDataset, partition_dataset
 from src.explainability import DEFAULT_EXPLAINABILITY_METRICS
@@ -137,9 +138,11 @@ def perform_run(
     run_dir = experiment_dir / (run_name if run_name is not None else generate_run_name())
     run_proxies = {}
     run_metrics = {}
-    for seed in params.random_seeds:
-        data_partitions = partition_dataset(dataset, params.dataset_split, seed)
+    for base_seed in params.random_seeds:
+        seed_generator = random.Random(base_seed)
+        data_partitions = partition_dataset(dataset, params.dataset_split, base_seed)
         for data_version, (train_dataset, val_dataset, test_dataset) in data_partitions:
+            seed = seed_generator.randint(MIN_SEED, MAX_SEED)
             tl.seed_everything(seed, workers=True)
             version = f'S{seed}_D{data_version}'
             model = GNN(architecture)
