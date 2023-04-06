@@ -83,20 +83,18 @@ class SynFlow(Proxy):
 
 class JacobianCovariance(Proxy):
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
-        batch = _get_data_samples(dataset.dataset, self.num_samples)
-        jacobian = self._compute_jacobian(model, batch)
+        jacobian = self._compute_batch_jacobian(model, dataset)
         correlations = torch.corrcoef(jacobian)
         _, log_determinant = torch.slogdet(correlations)
         return log_determinant
 
-    @staticmethod
-    def _compute_jacobian(model: GNNModule, data: Data) -> Tensor:
-        data.x.requires_grad_(True)
-        preds = model(data.x, data.edge_index, data.batch)
-        preds.backward(torch.ones_like(preds))
-        jacob = data.x.grad.detach()
-        data.x.requires_grad_(False)
-        graph_jacob = global_add_pool(jacob, data.batch)
+    def _compute_batch_jacobian(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
+        batch = _get_data_samples(dataset.dataset, self.num_samples)
+        batch.x.requires_grad_(True)
+        preds = model(batch.x, batch.edge_index, batch.batch)
+        jacob = autograd.grad(preds, batch.x, torch.ones_like(preds))[0]
+        batch.x.requires_grad_(False)
+        graph_jacob = global_add_pool(jacob, batch.batch)
         return graph_jacob
 
 
