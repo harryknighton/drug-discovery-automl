@@ -15,6 +15,7 @@ from src.data.utils import NamedLabelledDataset, BasicSplit, split_dataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture, GNN
 from src.nas.proxies import Proxy
+from src.reporting import save_run_results
 from src.training import train_model, HyperParameters
 
 
@@ -27,10 +28,8 @@ def search_hyperparameters(
     proxy: Optional[Proxy] = None
 ):
     torch.set_float32_matmul_precision(params.precision)
-    tl.seed_everything(params.random_seeds[0], workers=True)
 
     # Load objects needed for HyperOpt
-
     objective = _prepare_objective(dataset, params, experiment_dir, proxy)
     trials = _load_trials(experiment_dir)
     start = len(trials.trials)
@@ -56,14 +55,22 @@ def search_hyperparameters(
             gc.collect()
             torch.cuda.empty_cache()
 
-    assert best is not None
+    if best is None:
+        return
+    best_hyperopt_architecture = hyperopt.space_eval(search_space, best)
     best_architecture = _convert_to_gnn_architecture(
-        hyperopt.space_eval(search_space, best),
+        best_hyperopt_architecture,
         input_features=dataset.dataset.num_features,
         output_features=dataset.dataset.num_classes,
     )
-    AUTOML_LOGGER.info(f"Best results: {trials.best_trial['result']['metrics']}")
+    if proxy:
+        evaluation_objective = _prepare_objective(dataset, params, experiment_dir, proxy=None)
+        metrics = evaluation_objective(best_hyperopt_architecture)['metrics']
+    else:
+        metrics = trials.best_trial['result']['metrics']
+    AUTOML_LOGGER.info(f"Best results: {metrics}")
     AUTOML_LOGGER.info(f"Best architecture: {best_architecture}")
+    save_run_results({str(best_architecture): metrics}, experiment_dir, 'best_architecture')
 
 
 def construct_search_space(name: str):
@@ -89,6 +96,7 @@ def _prepare_objective(
     experiment_dir: Path,
     proxy: Optional[Proxy] = None,
 ) -> Callable[[Any], Dict[str, Any]]:
+    tl.seed_everything(params.random_seeds[0], workers=True)
     assert isinstance(params.dataset_split, BasicSplit)
     test_dataset, training_dataset = split_dataset(dataset.dataset, params.dataset_split.test_split)
     train_dataset, val_dataset = split_dataset(training_dataset, params.dataset_split.train_val_split)
