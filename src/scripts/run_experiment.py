@@ -26,6 +26,7 @@ def main():
     parser.add_argument('-N', '--experiment-name', type=str, required=True)
     parser.add_argument('-D', '--dataset', type=str, required=True)
     parser.add_argument('-d', '--dataset-usage', type=str, required=True, choices=[d.name for d in DatasetUsage])
+    parser.add_argument('-v', '--version', type=int, default=None)
     args = vars(parser.parse_args())
     config = _load_config(args['experiment_name'])
 
@@ -53,7 +54,7 @@ def main():
         precision=DEFAULT_PRECISION
     )
 
-    experiment_dir = generate_experiment_dir(dataset, args['experiment_name'])
+    experiment_dir = generate_experiment_dir(dataset, args['experiment_name'], version=args['version'])
     experiment_type = config['type']
     AUTOML_LOGGER.info(f"Starting experiment {args['experiment_name']} at {experiment_dir}")
     start = timeit.default_timer()
