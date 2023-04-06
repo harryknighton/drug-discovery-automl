@@ -55,7 +55,7 @@ class ModelArchitecture(ABC):
         return (
             f"Layers: [{', '.join(layer_names)}], "
             f"Features: {self.features}, "
-            f"Activation Functions: [{', '.join(activation_names)}]"
+            f"Activation Functions: [{', '.join(activation_names)}], "
             f"Batch Normalise: {self.batch_normalise}"
         )
 
