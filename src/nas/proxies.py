@@ -104,12 +104,11 @@ class GradientNorm(Proxy):
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         batch = _get_data_samples(dataset.dataset, self.num_samples)
         preds = model(batch.x, batch.edge_index, batch.batch)
-        preds.backward(torch.ones_like(preds))
-        gradient_norm = torch.tensor(0, dtype=torch.float)
-        for layer in model.modules():
-            if isinstance(layer, (torch.nn.Linear, torch_geometric.nn.Linear)) and layer.weight.grad is not None:
-                gradient_norm += layer.weight.grad.norm()
-        return gradient_norm.detach()
+        scaled_preds = dataset.label_scaler.inverse_transform(preds)
+        loss = mse_loss(scaled_preds.flatten(), batch.y)
+        weights = _get_model_weights(model)
+        gradients = autograd.grad(loss, weights)
+        return sum(gradient.sum() for gradient in gradients)
 
 
 class Snip(Proxy):
