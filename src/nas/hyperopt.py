@@ -105,7 +105,8 @@ def _prepare_objective(
         AUTOML_LOGGER.debug("Evaluating architecture " + str(architecture))
         if proxy is not None:
             metric = proxy(model, dataset).item()
-            result = {'loss': metric, 'metrics': {proxy.__class__.__name__: metric}, 'status': STATUS_OK}
+            loss = metric * -1. if proxy.higher_is_better else metric
+            result = {'loss': loss, 'metrics': {proxy.__class__.__name__: metric}, 'status': STATUS_OK}
         else:
             try:
                 metrics = train_model(
