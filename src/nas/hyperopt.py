@@ -1,19 +1,20 @@
 import gc
 import pickle
 from pathlib import Path
+from typing import Callable, Dict, Any, Optional
 
 import hyperopt
 import numpy as np
 import pytorch_lightning as tl
 import torch
-from hyperopt import hp
-from torch_geometric.data import LightningDataset, Dataset
+from hyperopt import hp, STATUS_OK, STATUS_FAIL
+from torch_geometric.data import LightningDataset
 
 from src.config import AUTOML_LOGGER, DEFAULT_SAVE_TRIALS_EVERY
-from src.data.scaling import Scaler
 from src.data.utils import NamedLabelledDataset, BasicSplit, split_dataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture, GNN
+from src.nas.proxies import Proxy
 from src.training import train_model, HyperParameters
 
 
@@ -23,13 +24,14 @@ def search_hyperparameters(
     params: HyperParameters,
     search_space: dict,
     max_evals: int,
+    proxy: Optional[Proxy] = None
 ):
     torch.set_float32_matmul_precision(params.precision)
     tl.seed_everything(params.random_seeds[0], workers=True)
 
     # Load objects needed for HyperOpt
 
-    objective = _prepare_objective(dataset.dataset, dataset.label_scaler, params, experiment_dir)
+    objective = _prepare_objective(dataset, params, experiment_dir, proxy)
     trials = _load_trials(experiment_dir)
     start = len(trials.trials)
     rstate = np.random.default_rng(params.random_seeds[0])
@@ -81,9 +83,14 @@ def construct_search_space(name: str):
         }
 
 
-def _prepare_objective(dataset: Dataset, label_scaler: Scaler, params: HyperParameters, experiment_dir: Path):
+def _prepare_objective(
+    dataset: NamedLabelledDataset,
+    params: HyperParameters,
+    experiment_dir: Path,
+    proxy: Optional[Proxy] = None,
+) -> Callable[[Any], Dict[str, Any]]:
     assert isinstance(params.dataset_split, BasicSplit)
-    test_dataset, training_dataset = split_dataset(dataset, params.dataset_split.test_split)
+    test_dataset, training_dataset = split_dataset(dataset.dataset, params.dataset_split.test_split)
     train_dataset, val_dataset = split_dataset(training_dataset, params.dataset_split.train_val_split)
     datamodule = LightningDataset(
         train_dataset, val_dataset, test_dataset,
@@ -93,27 +100,31 @@ def _prepare_objective(dataset: Dataset, label_scaler: Scaler, params: HyperPara
     def objective(x):
         if not hasattr(objective, 'version'):
             objective.version = 0
-        architecture = _convert_to_gnn_architecture(x, dataset.num_features, dataset.num_classes)
+        architecture = _convert_to_gnn_architecture(x, dataset.dataset.num_features, dataset.dataset.num_classes)
         model = GNN(architecture)
         AUTOML_LOGGER.debug("Evaluating architecture " + str(architecture))
-        try:
-            result = train_model(
-                model=model,
-                params=params,
-                datamodule=datamodule,
-                label_scaler=label_scaler,
-                run_dir=experiment_dir,
-                version=objective.version,
-                save_logs=False,
-                save_checkpoints=False,
-            )
-        except RuntimeError as e:
-            AUTOML_LOGGER.error(f"While training model error {e} was raised.")
-            return {'status': hyperopt.STATUS_FAIL}
-        cpu_result = {k: v.item() for k, v in result.items()}
-        del result  # Free up memory
+        if proxy is not None:
+            metric = proxy(model, dataset).item()
+            result = {'loss': metric, 'metrics': {proxy.__class__.__name__: metric}, 'status': STATUS_OK}
+        else:
+            try:
+                metrics = train_model(
+                    model=model,
+                    params=params,
+                    datamodule=datamodule,
+                    label_scaler=dataset.label_scaler,
+                    run_dir=experiment_dir,
+                    version=objective.version,
+                    save_logs=False,
+                    save_checkpoints=False,
+                )
+                cpu_metrics = {k: v.item() for k, v in metrics.items()}
+                result = {'loss': cpu_metrics['RootMeanSquaredError'], 'metrics': cpu_metrics, 'status': STATUS_OK}
+            except RuntimeError as e:
+                AUTOML_LOGGER.error(f"While training model error {e} was raised.")
+                result = {'status': STATUS_FAIL}
         objective.version += 1
-        return {'loss': cpu_result['RootMeanSquaredError'], 'metrics': cpu_result, 'status': hyperopt.STATUS_OK}
+        return result
 
     return objective
 

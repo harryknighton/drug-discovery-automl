@@ -1,17 +1,18 @@
 type = 'nas'
 
-seeds = [2409]
+seeds = [0]
 
 [search]
-max_evaluations = 500
+max_evaluations = 1
 search_space = 'simple'
+proxy = 'NumParams'
 
 [data]
 label_scaler = 'standard'
 # use_mf_pcba_splits = true
 # k_folds = 0
-num_workers = 32
+num_workers = 0
 
 [training]
-max_epochs = 100
+max_epochs = 1
 early_stop_patience = 30

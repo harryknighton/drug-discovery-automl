@@ -2,10 +2,11 @@ import argparse
 import logging
 import timeit
 from pathlib import Path
-from typing import Optional, Type, List
+from typing import Optional, Type, List, Any
 
 import tomli
 
+import src
 from src.config import LOG_DIR, DEFAULT_BATCH_SIZE, DEFAULT_LR, \
     DEFAULT_EARLY_STOP_DELTA, DEFAULT_TEST_SPLIT, DEFAULT_TRAIN_VAL_SPLIT, MF_PCBA_SEEDS, \
     EXPERIMENTS_DIR, DEFAULT_PRECISION, AUTOML_LOGGER
@@ -15,6 +16,7 @@ from src.data.utils import get_dataset, NamedLabelledDataset, BasicSplit, MFPCBA
 from src.metrics import DEFAULT_METRICS
 from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction
 from src.nas.hyperopt import search_hyperparameters, construct_search_space
+from src.nas.proxies import Proxy
 from src.reporting import generate_experiment_dir
 from src.training import run_experiment, LitGNN, HyperParameters
 
@@ -101,6 +103,7 @@ def _experiment(experiment_dir: Path, dataset: NamedLabelledDataset, params: Hyp
 def _nas(experiment_dir: Path, dataset: NamedLabelledDataset, params: HyperParameters, search_config: dict):
     logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
     search_space = construct_search_space(search_config['search_space'])
+    proxy = _resolve_proxy(search_config)
 
     search_hyperparameters(
         experiment_dir=experiment_dir,
@@ -108,6 +111,7 @@ def _nas(experiment_dir: Path, dataset: NamedLabelledDataset, params: HyperParam
         params=params,
         search_space=search_space,
         max_evals=search_config['max_evaluations'],
+        proxy=proxy
     )
 
 
@@ -139,7 +143,7 @@ def _validate_config(config: dict) -> None:
         if models['regression_features'] <= 0:
             raise ValueError('Regression layer features must be positive')
     elif config['type'] == 'nas':
-        if not isinstance(config['seeds'], int):
+        if len(config['seeds']) > 1:
             raise ValueError('Must only provide a single seed')
         if config['search']['max_evaluations'] <= 0:
             raise ValueError('Max evaluations must be positive')
@@ -192,6 +196,16 @@ def _resolve_label_scaler(config) -> Type[Scaler]:
         return MinMaxScaler
     else:
         raise ValueError("Unknown label scaler " + str(config['data']['label_scaler']))
+
+
+def _resolve_proxy(search_space_config: dict[str, Any]) -> Optional[Proxy]:
+    proxy = search_space_config.get('proxy')
+    if proxy is None:
+        return None
+    proxy_type = vars(src.nas.proxies)[proxy]
+    if not issubclass(proxy_type, Proxy):
+        raise ValueError(f"Invalid proxy argument '{proxy}'")
+    return proxy_type()
 
 
 if __name__ == '__main__':

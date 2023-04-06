@@ -1,10 +1,11 @@
 type = 'nas'
 
-seeds = 2409
+seeds = [2409]
 
 [search]
 max_evaluations = 500
 search_space = 'simple'
+# proxy = JacobianCovariance
 
 [data]
 label_scaler = 'standard'
