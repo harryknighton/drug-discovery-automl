@@ -1,5 +1,6 @@
 import gc
 import pickle
+import random
 from pathlib import Path
 from typing import Callable, Dict, Any, Optional
 
@@ -26,12 +27,14 @@ def search_hyperparameters(
     search_space: dict,
     algorithm: Callable,
     max_evals: int,
-    proxy: Optional[Proxy] = None
+    noise_temperature: float,
+    noise_decay: float,
+    proxy: Optional[Proxy] = None,
 ):
     torch.set_float32_matmul_precision(params.precision)
 
     # Load objects needed for HyperOpt
-    objective = _prepare_objective(dataset, params, experiment_dir, proxy)
+    objective = _prepare_objective(dataset, params, experiment_dir, noise_temperature, noise_decay, proxy)
     trials = _load_trials(experiment_dir)
     start = len(trials.trials)
     rstate = np.random.default_rng(params.random_seeds[0])
@@ -95,7 +98,9 @@ def _prepare_objective(
     dataset: NamedLabelledDataset,
     params: HyperParameters,
     experiment_dir: Path,
-    proxy: Optional[Proxy] = None,
+    noise_temperature: float,
+    noise_decay: float,
+    proxy: Optional[Proxy] = None
 ) -> Callable[[Any], Dict[str, Any]]:
     tl.seed_everything(params.random_seeds[0], workers=True)
     assert isinstance(params.dataset_split, BasicSplit)
@@ -105,10 +110,9 @@ def _prepare_objective(
         train_dataset, val_dataset, test_dataset,
         batch_size=params.batch_size, num_workers=params.num_workers
     )
+    noise_generator = random.Random(params.random_seeds[0])
 
     def objective(x):
-        if not hasattr(objective, 'version'):
-            objective.version = 0
         architecture = _convert_to_gnn_architecture(x, dataset.dataset.num_features, dataset.dataset.num_classes)
         model = GNN(architecture)
         AUTOML_LOGGER.debug("Evaluating architecture " + str(architecture))
@@ -133,8 +137,17 @@ def _prepare_objective(
             except RuntimeError as e:
                 AUTOML_LOGGER.error(f"While training model error {e} was raised.")
                 result = {'status': STATUS_FAIL}
+
+        if objective.noise_temperature > 0 and 'loss' in result:
+            noise = noise_generator.random()
+            result['loss'] += noise * objective.noise_temperature
+            objective.noise_temperature *= noise_decay
+
         objective.version += 1
         return result
+
+    objective.version = 0
+    objective.noise_temperature = noise_temperature
 
     return objective
 

@@ -115,6 +115,8 @@ def _nas(experiment_dir: Path, dataset: NamedLabelledDataset, params: HyperParam
         search_space=search_space,
         algorithm=algorithm,
         max_evals=search_config['max_evaluations'],
+        noise_temperature=search_config['noise_temperature'],
+        noise_decay=search_config['noise_decay'],
         proxy=proxy
     )
 
