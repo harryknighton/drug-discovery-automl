@@ -3,6 +3,7 @@ type = 'nas'
 seeds = [2409]
 
 [search]
+algorithm = 'random'
 max_evaluations = 500
 search_space = 'simple'
 

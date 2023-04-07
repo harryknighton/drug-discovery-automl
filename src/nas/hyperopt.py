@@ -24,6 +24,7 @@ def search_hyperparameters(
     dataset: NamedLabelledDataset,
     params: HyperParameters,
     search_space: dict,
+    algorithm: Callable,
     max_evals: int,
     proxy: Optional[Proxy] = None
 ):
@@ -45,7 +46,7 @@ def search_hyperparameters(
         best = hyperopt.fmin(
             fn=objective,
             space=search_space,
-            algo=hyperopt.tpe.suggest,
+            algo=algorithm,
             max_evals=stop,
             trials=trials,
             rstate=rstate

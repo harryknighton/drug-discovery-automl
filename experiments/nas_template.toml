@@ -1,15 +1,16 @@
 type = 'nas'
 
-seeds = [2409]
+seeds = [0]
 
 [search]
+algorithm = 'random'
 max_evaluations = 500
 search_space = 'simple'
 # proxy = JacobianCovariance
 
 [data]
 label_scaler = 'standard'
-num_workers = 32
+num_workers = 0
 
 [training]
 max_epochs = 100

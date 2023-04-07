@@ -3,6 +3,7 @@ type = 'nas'
 seeds = [0]
 
 [search]
+algorithm = 'random'
 max_evaluations = 1
 search_space = 'simple'
 proxy = 'NumParams'

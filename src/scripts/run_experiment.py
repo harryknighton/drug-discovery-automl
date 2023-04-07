@@ -2,8 +2,9 @@ import argparse
 import logging
 import timeit
 from pathlib import Path
-from typing import Optional, Type, List, Any
+from typing import Optional, Type, List, Any, Callable
 
+import hyperopt.rand
 import tomli
 
 import src
@@ -104,6 +105,7 @@ def _experiment(experiment_dir: Path, dataset: NamedLabelledDataset, params: Hyp
 def _nas(experiment_dir: Path, dataset: NamedLabelledDataset, params: HyperParameters, search_config: dict):
     logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
     search_space = construct_search_space(search_config['search_space'])
+    algorithm = _resolve_search_algorithm(search_config['algorithm'])
     proxy = _resolve_proxy(search_config)
 
     search_hyperparameters(
@@ -111,6 +113,7 @@ def _nas(experiment_dir: Path, dataset: NamedLabelledDataset, params: HyperParam
         dataset=dataset,
         params=params,
         search_space=search_space,
+        algorithm=algorithm,
         max_evals=search_config['max_evaluations'],
         proxy=proxy
     )
@@ -197,6 +200,13 @@ def _resolve_label_scaler(config) -> Type[Scaler]:
         return MinMaxScaler
     else:
         raise ValueError("Unknown label scaler " + str(config['data']['label_scaler']))
+
+
+def _resolve_search_algorithm(algorithm: str) -> Callable:
+    match algorithm:
+        case 'random': return hyperopt.rand.suggest
+        case 'tpe': return hyperopt.tpe.suggest
+        case _: raise ValueError("Unknown NAS search algorithm")
 
 
 def _resolve_proxy(search_space_config: dict[str, Any]) -> Optional[Proxy]:
