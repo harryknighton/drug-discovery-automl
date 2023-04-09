@@ -29,12 +29,23 @@ def search_hyperparameters(
     max_evals: int,
     noise_temperature: float,
     noise_decay: float,
-    proxy: Optional[Proxy] = None,
+    loss_explainability_ratio: float = 1.0,
+    loss_proxy: Optional[Proxy] = None,
+    explainability_proxy: Optional[Proxy] = None,
 ):
     torch.set_float32_matmul_precision(params.precision)
 
     # Load objects needed for HyperOpt
-    objective = _prepare_objective(dataset, params, experiment_dir, noise_temperature, noise_decay, proxy)
+    objective = _prepare_objective(
+        dataset=dataset,
+        params=params,
+        experiment_dir=experiment_dir,
+        noise_temperature=noise_temperature,
+        noise_decay=noise_decay,
+        loss_explainability_ratio=loss_explainability_ratio,
+        loss_proxy=loss_proxy,
+        explainability_proxy=explainability_proxy
+    )
     trials = _load_trials(experiment_dir)
     start = len(trials.trials)
     rstate = np.random.default_rng(params.random_seeds[0])
@@ -67,8 +78,17 @@ def search_hyperparameters(
         input_features=dataset.dataset.num_features,
         output_features=dataset.dataset.num_classes,
     )
-    if proxy:
-        evaluation_objective = _prepare_objective(dataset, params, experiment_dir, proxy=None)
+    if loss_proxy is not None or explainability_proxy is not None:
+        evaluation_objective = _prepare_objective(
+            dataset=dataset,
+            params=params,
+            experiment_dir=experiment_dir,
+            noise_temperature=0.,
+            noise_decay=0.,
+            loss_explainability_ratio=loss_explainability_ratio,
+            loss_proxy=None,
+            explainability_proxy=None
+        )
         metrics = evaluation_objective(best_hyperopt_architecture)['metrics']
     else:
         metrics = trials.best_trial['result']['metrics']
@@ -100,7 +120,9 @@ def _prepare_objective(
     experiment_dir: Path,
     noise_temperature: float,
     noise_decay: float,
-    proxy: Optional[Proxy] = None
+    loss_explainability_ratio: float,
+    loss_proxy: Optional[Proxy] = None,
+    explainability_proxy: Optional[Proxy] = None
 ) -> Callable[[Any], Dict[str, Any]]:
     tl.seed_everything(params.random_seeds[0], workers=True)
     assert isinstance(params.dataset_split, BasicSplit)
@@ -112,17 +134,39 @@ def _prepare_objective(
     )
     noise_generator = random.Random(params.random_seeds[0])
 
+    def _calculate_result(metrics: dict, status: str) -> dict:
+        result = {'status': status}
+        if not metrics:
+            return result
+        result['metrics'] = metrics
+        if loss_proxy is not None:
+            test_loss = metrics[loss_proxy.__class__.__name__]
+            if loss_proxy.higher_is_better:
+                test_loss *= -1
+        else:
+            test_loss = metrics['RootMeanSquaredError']
+        if explainability_proxy is not None:
+            explainability = metrics[explainability_proxy.__class__.__name__]
+            if explainability_proxy.higher_is_better:
+                explainability *= -1
+        else:
+            explainability = metrics['ConceptCompleteness']
+        result['loss'] = loss_explainability_ratio * test_loss + (1 - loss_explainability_ratio) * explainability
+        return result
+
     def objective(x):
         architecture = _convert_to_gnn_architecture(x, dataset.dataset.num_features, dataset.dataset.num_classes)
         model = GNN(architecture)
         AUTOML_LOGGER.debug("Evaluating architecture " + str(architecture))
-        if proxy is not None:
-            metric = proxy(model, dataset).item()
-            loss = metric * -1. if proxy.higher_is_better else metric
-            result = {'loss': loss, 'metrics': {proxy.__class__.__name__: metric}, 'status': STATUS_OK}
+        metrics = {}
+        status = STATUS_OK
+        if loss_proxy is not None:
+            metrics[loss_proxy.__class__.__name__] = loss_proxy(model, dataset).item()
+        if explainability_proxy is not None:
+            metrics[explainability_proxy.__class__.__name__] = explainability_proxy(model, dataset).item()
         else:
             try:
-                metrics = train_model(
+                gpu_metrics = train_model(
                     model=model,
                     params=params,
                     datamodule=datamodule,
@@ -132,11 +176,12 @@ def _prepare_objective(
                     save_logs=False,
                     save_checkpoints=False,
                 )
-                cpu_metrics = {k: v.item() for k, v in metrics.items()}
-                result = {'loss': cpu_metrics['RootMeanSquaredError'], 'metrics': cpu_metrics, 'status': STATUS_OK}
+                metrics.update({k: v.item() for k, v in gpu_metrics.items()})
             except RuntimeError as e:
                 AUTOML_LOGGER.error(f"While training model error {e} was raised.")
-                result = {'status': STATUS_FAIL}
+                status = STATUS_FAIL
+
+        result = _calculate_result(metrics, status)
 
         if objective.noise_temperature > 0 and 'loss' in result:
             noise = noise_generator.random()

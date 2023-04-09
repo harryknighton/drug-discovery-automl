@@ -2,7 +2,7 @@ import argparse
 import logging
 import timeit
 from pathlib import Path
-from typing import Optional, Type, List, Any, Callable
+from typing import Optional, Type, List, Callable
 
 import hyperopt.rand
 import tomli
@@ -106,7 +106,8 @@ def _nas(experiment_dir: Path, dataset: NamedLabelledDataset, params: HyperParam
     logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
     search_space = construct_search_space(search_config['search_space'])
     algorithm = _resolve_search_algorithm(search_config['algorithm'])
-    proxy = _resolve_proxy(search_config)
+    loss_proxy = _resolve_proxy(search_config.get('loss_proxy'))
+    explainability_proxy = _resolve_proxy(search_config.get('explainability_proxy'))
 
     search_hyperparameters(
         experiment_dir=experiment_dir,
@@ -117,7 +118,9 @@ def _nas(experiment_dir: Path, dataset: NamedLabelledDataset, params: HyperParam
         max_evals=search_config['max_evaluations'],
         noise_temperature=search_config['noise_temperature'],
         noise_decay=search_config['noise_decay'],
-        proxy=proxy
+        loss_explainability_ratio=search_config['loss_explainability_ratio'],
+        loss_proxy=loss_proxy,
+        explainability_proxy=explainability_proxy,
     )
 
 
@@ -211,8 +214,7 @@ def _resolve_search_algorithm(algorithm: str) -> Callable:
         case _: raise ValueError("Unknown NAS search algorithm")
 
 
-def _resolve_proxy(search_space_config: dict[str, Any]) -> Optional[Proxy]:
-    proxy = search_space_config.get('proxy')
+def _resolve_proxy(proxy: str) -> Optional[Proxy]:
     if proxy is None:
         return None
     proxy_type = vars(src.nas.proxies)[proxy]

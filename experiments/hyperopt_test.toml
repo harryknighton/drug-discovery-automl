@@ -8,7 +8,9 @@ max_evaluations = 1
 search_space = 'simple'
 noise_temperature = 0.1
 noise_decay = 0.1
-proxy = 'NumParams'
+loss_explainability_ratio = 0.5
+loss_proxy = 'NumParams'
+explainability_proxy = 'SynFlow'
 
 [data]
 label_scaler = 'standard'
