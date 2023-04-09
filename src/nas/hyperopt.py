@@ -16,7 +16,7 @@ from src.data.utils import NamedLabelledDataset, BasicSplit, split_dataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture, GNN
 from src.nas.proxies import Proxy
-from src.reporting import save_run_results
+from src.evaluation.reporting import save_run_results
 from src.training import train_model, HyperParameters
 
 

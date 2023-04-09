@@ -8,7 +8,7 @@ from torch import Tensor
 from torchmetrics import Metric, MetricCollection
 
 from src.config import AUTOML_LOGGER
-from src.pytorchclustermetrics import silhouette_score
+from src.evaluation.pytorchclustermetrics import silhouette_score
 
 
 class ConceptCompleteness(Metric):

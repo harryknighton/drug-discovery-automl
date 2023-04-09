@@ -17,11 +17,11 @@ from torchmetrics import MetricCollection
 from src.config import AUTOML_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR, MAX_SEED, MIN_SEED
 from src.data.scaling import Scaler
 from src.data.utils import DatasetSplit, NamedLabelledDataset, partition_dataset
-from src.explainability import DEFAULT_EXPLAINABILITY_METRICS
-from src.metrics import DEFAULT_METRICS, analyse_results_distribution, detach_metrics
+from src.evaluation.explainability import DEFAULT_EXPLAINABILITY_METRICS
+from src.evaluation.metrics import DEFAULT_METRICS, analyse_results_distribution, detach_metrics
 from src.models import GNNArchitecture, GNN
 from src.nas.proxies import DEFAULT_PROXIES
-from src.reporting import generate_run_name, save_experiment_results, save_run_results
+from src.evaluation.reporting import generate_run_name, save_experiment_results, save_run_results
 from src.types import Metrics
 
 
