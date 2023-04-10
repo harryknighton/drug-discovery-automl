@@ -17,7 +17,7 @@ from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArc
     build_uniform_regression_layer_architecture, GNN
 from src.nas.proxies import Proxy
 from src.evaluation.reporting import save_run_results
-from src.training import train_model, HyperParameters
+from src.training import train_model, HyperParameters, perform_run
 
 
 def search_hyperparameters(
@@ -79,22 +79,11 @@ def search_hyperparameters(
         output_features=dataset.dataset.num_classes,
     )
     if loss_proxy is not None or explainability_proxy is not None:
-        evaluation_objective = _prepare_objective(
-            dataset=dataset,
-            params=params,
-            experiment_dir=experiment_dir,
-            noise_temperature=0.,
-            noise_decay=0.,
-            loss_explainability_ratio=loss_explainability_ratio,
-            loss_proxy=None,
-            explainability_proxy=None
-        )
-        metrics = evaluation_objective(best_hyperopt_architecture)['metrics']
+        proxies, metrics = perform_run(dataset, best_architecture, params, experiment_dir, run_name='best_architecture')
     else:
         metrics = trials.best_trial['result']['metrics']
     AUTOML_LOGGER.info(f"Best results: {metrics}")
     AUTOML_LOGGER.info(f"Best architecture: {best_architecture}")
-    save_run_results({str(best_architecture): metrics}, experiment_dir, 'best_architecture')
 
 
 def construct_search_space(name: str):
