@@ -140,13 +140,13 @@ def _prepare_objective(
             return result
         result['metrics'] = metrics
         if loss_proxy is not None:
-            test_loss = metrics[loss_proxy.__class__.__name__]
+            test_loss = metrics['loss_proxy']
             if loss_proxy.higher_is_better:
                 test_loss *= -1
         else:
             test_loss = metrics['RootMeanSquaredError']
         if explainability_proxy is not None:
-            explainability = metrics[explainability_proxy.__class__.__name__]
+            explainability = metrics['explainability_proxy']
             if explainability_proxy.higher_is_better:
                 explainability *= -1
         else:
@@ -161,9 +161,9 @@ def _prepare_objective(
         metrics = {}
         status = STATUS_OK
         if loss_proxy is not None:
-            metrics[loss_proxy.__class__.__name__] = loss_proxy(model, dataset).item()
+            metrics['loss_proxy'] = loss_proxy(model, dataset).item()
         if explainability_proxy is not None:
-            metrics[explainability_proxy.__class__.__name__] = explainability_proxy(model, dataset).item()
+            metrics['explainability_proxy'] = explainability_proxy(model, dataset).item()
         if (
             loss_proxy is None and loss_explainability_ratio > 0. or
             explainability_proxy is None and loss_explainability_ratio < 1.
