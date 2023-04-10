@@ -124,26 +124,6 @@ def _prepare_objective(
     )
     noise_generator = random.Random(params.random_seeds[0])
 
-    def _calculate_result(metrics: dict, status: str) -> dict:
-        result = {'status': status}
-        if not metrics:
-            return result
-        result['metrics'] = metrics
-        if loss_proxy is not None:
-            test_loss = metrics['loss_proxy']
-            if loss_proxy.higher_is_better:
-                test_loss *= -1
-        else:
-            test_loss = metrics['RootMeanSquaredError']
-        if explainability_proxy is not None:
-            explainability_loss = metrics['explainability_proxy']
-            if explainability_proxy.higher_is_better:
-                explainability_loss *= -1
-        else:
-            explainability_loss = - metrics['ConceptCompleteness']
-        result['loss'] = loss_explainability_ratio * test_loss + (1 - loss_explainability_ratio) * explainability_loss
-        return result
-
     def objective(x):
         architecture = _convert_to_gnn_architecture(x, dataset.dataset.num_features, dataset.dataset.num_classes)
         model = GNN(architecture)
@@ -183,6 +163,33 @@ def _prepare_objective(
 
         objective.version += 1
         return result
+
+    def _calculate_result(metrics: dict, status: str) -> dict:
+        result = {'status': status}
+        if not metrics:
+            return result
+        result['metrics'] = metrics
+        test_loss = _calculate_loss('loss', metrics)
+        explainability_loss = _calculate_loss('explainability', metrics)
+        result['loss'] = loss_explainability_ratio * test_loss + (1 - loss_explainability_ratio) * explainability_loss
+        return result
+
+    def _calculate_loss(target: str, metrics: dict) -> float:
+        match target:
+            case 'loss': proxy = loss_proxy
+            case 'explainability': proxy = explainability_proxy
+            case _: raise ValueError("Unknown loss target")
+        if proxy is not None:
+            loss = metrics[target + '_proxy']
+            if proxy.higher_is_better:
+                loss *= -1
+        elif target == 'loss' and loss_explainability_ratio > 0.0:
+            loss = metrics['RootMeanSquaredError']
+        elif target == 'explainability' and loss_explainability_ratio < 1.0:
+            loss = - metrics['ConceptCompleteness']
+        else:
+            loss = 0.
+        return loss
 
     objective.version = 0
     objective.noise_temperature = noise_temperature
