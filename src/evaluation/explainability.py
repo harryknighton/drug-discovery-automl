@@ -14,7 +14,7 @@ from src.evaluation.pytorchclustermetrics import silhouette_score
 class ConceptCompleteness(Metric):
     """Compute the concept completeness from GCExplainer (https://arxiv.org/abs/2107.11889)"""
     is_differentiable: bool = False
-    higher_is_better: bool = False
+    higher_is_better: bool = True
     full_state_update: bool = False
 
     def __init__(self, **kwargs: Any) -> None:
