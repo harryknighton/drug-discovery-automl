@@ -11,6 +11,8 @@ ROOT_DIR = Path(__file__).absolute().parent.parent
 DATASETS_DIR = ROOT_DIR / 'datasets'
 LOG_DIR = ROOT_DIR / 'logs'
 EXPERIMENTS_DIR = ROOT_DIR / 'experiments'
+FIGURES_DIR = ROOT_DIR / 'figures'
+FIGURES_DIR.mkdir(exist_ok=True)
 
 
 # Seeds used in https://chemrxiv.org/engage/chemrxiv/article-details/636fa49b80c9bfb4dc944c1c
