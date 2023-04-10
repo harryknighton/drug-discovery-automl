@@ -82,6 +82,7 @@ def search_hyperparameters(
         proxies, metrics = perform_run(dataset, best_architecture, params, experiment_dir, run_name='best_architecture')
     else:
         metrics = trials.best_trial['result']['metrics']
+        save_run_results({str(best_architecture): metrics}, experiment_dir, 'best_architecture')
     AUTOML_LOGGER.info(f"Best results: {metrics}")
     AUTOML_LOGGER.info(f"Best architecture: {best_architecture}")
 
