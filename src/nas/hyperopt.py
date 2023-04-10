@@ -164,7 +164,10 @@ def _prepare_objective(
             metrics[loss_proxy.__class__.__name__] = loss_proxy(model, dataset).item()
         if explainability_proxy is not None:
             metrics[explainability_proxy.__class__.__name__] = explainability_proxy(model, dataset).item()
-        else:
+        if (
+            loss_proxy is None and loss_explainability_ratio > 0. or
+            explainability_proxy is None and loss_explainability_ratio < 1.
+        ):
             try:
                 gpu_metrics = train_model(
                     model=model,
