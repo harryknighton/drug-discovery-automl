@@ -1,0 +1,20 @@
+type = 'nas'
+
+seeds = [6167]
+
+[search]
+algorithm = 'tpe'
+max_evaluations = 500
+search_space = 'simple'
+noise_temperature = 0.0
+noise_decay = 0.0
+loss_explainability_ratio = 1.0
+loss_proxy = 'GradientNorm'
+
+[data]
+label_scaler = 'standard'
+num_workers = 32
+
+[training]
+max_epochs = 100
+early_stop_patience = 30
