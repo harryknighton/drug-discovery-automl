@@ -54,7 +54,7 @@ def save_run_results(results: dict[str, Metrics], run_dir: Path, filename: str) 
         json.dump(trial_results, out, indent=2)
 
 
-def load_architecture(run_dir) -> None:
-    filepath = run_dir / 'architecture.pkl'
+def read_json_file(dir: Path, filename: str) -> None:
+    filepath = dir / filename
     with open(filepath, 'rb') as file:
-        return pickle.load(file)
+        return json.load(file)
