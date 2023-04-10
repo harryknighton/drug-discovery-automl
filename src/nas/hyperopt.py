@@ -146,12 +146,12 @@ def _prepare_objective(
         else:
             test_loss = metrics['RootMeanSquaredError']
         if explainability_proxy is not None:
-            explainability = metrics['explainability_proxy']
+            explainability_loss = metrics['explainability_proxy']
             if explainability_proxy.higher_is_better:
-                explainability *= -1
+                explainability_loss *= -1
         else:
-            explainability = metrics['ConceptCompleteness']
-        result['loss'] = loss_explainability_ratio * test_loss + (1 - loss_explainability_ratio) * explainability
+            explainability_loss = - metrics['ConceptCompleteness']
+        result['loss'] = loss_explainability_ratio * test_loss + (1 - loss_explainability_ratio) * explainability_loss
         return result
 
     def objective(x):
