@@ -131,14 +131,18 @@ def perform_run(
     dataset: NamedLabelledDataset,
     architecture: GNNArchitecture,
     params: HyperParameters,
-    experiment_dir: Path,
+    experiment_dir: Optional[Path] = None,
     run_name: Optional[str] = None,
-    save_logs: bool = True
 ) -> Tuple[dict[str, Metrics], dict[str, Metrics]]:
     """Perform multiple runs using k-fold cross validation and return the average results"""
-    run_dir = experiment_dir / (run_name if run_name is not None else generate_run_name())
+    save_logs = experiment_dir is not None
+    if save_logs:
+        run_dir = experiment_dir / (run_name if run_name is not None else generate_run_name())
+    else:
+        run_dir = None
     run_proxies = {}
     run_metrics = {}
+
     for base_seed in params.random_seeds:
         seed_generator = random.Random(base_seed)
         data_partitions = partition_dataset(dataset, params.dataset_split, base_seed)
@@ -167,7 +171,7 @@ def train_model(
     params: HyperParameters,
     datamodule: LightningDataModule,
     label_scaler: Scaler,
-    run_dir: Path,
+    run_dir: Optional[Path] = None,
     version: Optional[int | str] = None,
     save_logs: bool = True,
     save_checkpoints: bool = True,

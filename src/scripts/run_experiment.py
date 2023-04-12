@@ -17,7 +17,7 @@ from src.data.scaling import fit_label_scaler, Scaler, StandardScaler, MinMaxSca
 from src.data.utils import get_dataset, NamedLabelledDataset, BasicSplit, MFPCBA, KFolds, DatasetSplit
 from src.evaluation.metrics import DEFAULT_METRICS
 from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction
-from src.nas.hyperopt import search_hyperparameters, construct_search_space
+from src.nas.hyperopt import search_hyperparameters, construct_search_space, fit_ensemble
 from src.nas.proxies import Proxy, DEFAULT_PROXIES, Ensemble
 from src.evaluation.reporting import generate_experiment_dir
 from src.training import run_experiment, LitGNN, HyperParameters
@@ -109,6 +109,10 @@ def _nas(experiment_dir: Path, dataset: NamedLabelledDataset, params: HyperParam
     algorithm = _resolve_search_algorithm(search_config['algorithm'])
     loss_proxy = _resolve_proxy(search_config.get('loss_proxy'))
     explainability_proxy = _resolve_proxy(search_config.get('explainability_proxy'))
+    if isinstance(loss_proxy, Ensemble):
+        fit_ensemble(loss_proxy, 'RootMeanSquaredError', search_space, dataset, params, experiment_dir)
+    if isinstance(explainability_proxy, Ensemble):
+        fit_ensemble(explainability_proxy, 'ConceptCompleteness', search_space, dataset, params, experiment_dir)
 
     search_hyperparameters(
         experiment_dir=experiment_dir,

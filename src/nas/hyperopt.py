@@ -15,9 +15,10 @@ from src.config import AUTOML_LOGGER, DEFAULT_SAVE_TRIALS_EVERY
 from src.data.utils import NamedLabelledDataset, BasicSplit, split_dataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture, GNN
-from src.nas.proxies import Proxy
+from src.nas.proxies import Proxy, Ensemble
 from src.evaluation.reporting import save_run_results
 from src.training import train_model, HyperParameters, perform_run
+from src.types import Metrics
 
 
 def search_hyperparameters(
@@ -228,3 +229,43 @@ def _save_trials(trials: hyperopt.Trials, experiment_dir: Path) -> None:
     experiment_dir.mkdir(parents=True, exist_ok=True)
     with open(experiment_dir / 'trials.pkl', 'wb') as out:
         pickle.dump(trials, out)
+
+
+def fit_ensemble(
+    proxy: Ensemble,
+    target: str,
+    search_space: dict,
+    dataset: NamedLabelledDataset,
+    params: HyperParameters,
+    experiment_dir: Path,
+    num_samples: int = 2,
+) -> None:
+    samples_filepath = experiment_dir.parent / 'sampled_results.json'
+    if samples_filepath.exists():
+        proxies, metrics = torch.load(samples_filepath)
+    else:
+        proxies, metrics = sample_proxies_metrics(search_space, num_samples, dataset, params)
+        torch.save((proxies, metrics), samples_filepath)
+    labels = [metric[target] for metric in metrics]
+    proxy.fit(proxies, labels)
+
+
+def sample_proxies_metrics(
+    search_space: dict, num_samples: int, dataset: NamedLabelledDataset, params: HyperParameters,
+) -> tuple[list[Metrics], list[Metrics]]:
+    proxies = []
+    metrics = []
+    input_features, output_features = dataset.dataset.num_features, dataset.dataset.num_classes
+    architectures = _sample_architecture_space(search_space, num_samples, input_features, output_features)
+    for architecture in architectures:
+        model_proxies, model_metrics = perform_run(dataset, architecture, params, experiment_dir=None)
+        proxies.append(list(model_proxies.values())[0])
+        metrics.append(list(model_metrics.values())[0])
+    return proxies, metrics
+
+
+def _sample_architecture_space(
+    search_space: dict, num_samples: int, in_features: int, out_features: int
+) -> list[GNNArchitecture]:
+    hyperopt_archs = [hyperopt.base.pyll.stochastic.sample(search_space) for _ in range(num_samples)]
+    return [_convert_to_gnn_architecture(arch, in_features, out_features) for arch in hyperopt_archs]
