@@ -50,6 +50,7 @@ class Ensemble(Proxy):
     def __init__(self, proxy_collection: ProxyCollection) -> None:
         super(Proxy, self).__init__()
         self.proxy_collection = proxy_collection
+        self.higher_is_better = None
         self.model = LinearRegression()
 
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:

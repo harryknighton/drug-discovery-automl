@@ -110,8 +110,10 @@ def _nas(experiment_dir: Path, dataset: NamedLabelledDataset, params: HyperParam
     loss_proxy = _resolve_proxy(search_config.get('loss_proxy'))
     explainability_proxy = _resolve_proxy(search_config.get('explainability_proxy'))
     if isinstance(loss_proxy, Ensemble):
+        loss_proxy.higher_is_better = False
         fit_ensemble(loss_proxy, 'RootMeanSquaredError', search_space, dataset, params, experiment_dir)
     if isinstance(explainability_proxy, Ensemble):
+        loss_proxy.higher_is_better = True
         fit_ensemble(explainability_proxy, 'ConceptCompleteness', search_space, dataset, params, experiment_dir)
 
     search_hyperparameters(
