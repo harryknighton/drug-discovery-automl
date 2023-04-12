@@ -238,7 +238,7 @@ def fit_ensemble(
     dataset: NamedLabelledDataset,
     params: HyperParameters,
     experiment_dir: Path,
-    num_samples: int = 2,
+    num_samples: int = 100,
 ) -> None:
     samples_filepath = experiment_dir.parent / 'sampled_results.json'
     if samples_filepath.exists():
