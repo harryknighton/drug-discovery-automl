@@ -1,4 +1,5 @@
 import argparse
+import copy
 import logging
 import timeit
 from pathlib import Path
@@ -17,7 +18,7 @@ from src.data.utils import get_dataset, NamedLabelledDataset, BasicSplit, MFPCBA
 from src.evaluation.metrics import DEFAULT_METRICS
 from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction
 from src.nas.hyperopt import search_hyperparameters, construct_search_space
-from src.nas.proxies import Proxy
+from src.nas.proxies import Proxy, DEFAULT_PROXIES, Ensemble
 from src.evaluation.reporting import generate_experiment_dir
 from src.training import run_experiment, LitGNN, HyperParameters
 
@@ -217,6 +218,8 @@ def _resolve_search_algorithm(algorithm: str) -> Callable:
 def _resolve_proxy(proxy: str) -> Optional[Proxy]:
     if proxy is None:
         return None
+    if proxy == 'Ensemble':
+        return Ensemble(copy.deepcopy(DEFAULT_PROXIES))
     proxy_type = vars(src.nas.proxies)[proxy]
     if not issubclass(proxy_type, Proxy):
         raise ValueError(f"Invalid proxy argument '{proxy}'")

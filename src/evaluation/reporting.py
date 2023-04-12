@@ -1,5 +1,4 @@
 import json
-import pickle
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -54,7 +53,7 @@ def save_run_results(results: dict[str, Metrics], run_dir: Path, filename: str) 
         json.dump(trial_results, out, indent=2)
 
 
-def read_json_file(dir: Path, filename: str) -> None:
-    filepath = dir / filename
+def read_json_file(parent_dir: Path, filename: str) -> None:
+    filepath = parent_dir / filename
     with open(filepath, 'rb') as file:
         return json.load(file)

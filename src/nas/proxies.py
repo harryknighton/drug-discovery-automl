@@ -4,6 +4,7 @@ from typing import List
 
 import torch
 import torch_geometric.nn
+from sklearn.linear_model import LinearRegression
 from torch import Tensor, autograd
 from torch.nn import Module
 from torch.nn.functional import mse_loss
@@ -36,23 +37,32 @@ class Proxy(ABC):
 class ProxyCollection(Proxy):
     def __init__(self, proxies: List[Proxy]) -> None:
         super(ProxyCollection, self).__init__()
-        self.proxies = proxies
+        self.proxies = {proxy.__class__.__name__: proxy for proxy in proxies}
 
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Metrics:
-        return {proxy.__class__.__name__: proxy(model, dataset) for proxy in self.proxies}
+        return {name: proxy(model, dataset) for name, proxy in self.proxies.items()}
 
     def __call__(self, model: GNNModule, dataset: NamedLabelledDataset) -> Metrics:
         return self._compute(model, dataset)
 
 
-class MajorityVote(Proxy):
-    def __init__(self, proxies: List[Proxy]) -> None:
+class Ensemble(Proxy):
+    def __init__(self, proxy_collection: ProxyCollection) -> None:
         super(Proxy, self).__init__()
-        self.proxies = proxies
+        self.proxy_collection = proxy_collection
+        self.model = LinearRegression()
 
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
-        results = [proxy(model, dataset) for proxy in self.proxies]
-        return sum(results) / len(results)
+        proxies = self.proxy_collection(model, dataset)
+        x = torch.stack(list(proxies.values())).reshape(1, -1)
+        result = self.model.predict(x)
+        return torch.tensor(result)
+
+    def fit(self, xs: List[Metrics], ys: List[Tensor]) -> None:
+        x_samples = [[sample[proxy_name] for proxy_name in self.proxy_collection.proxies] for sample in xs]
+        x = torch.stack([torch.stack(sample) for sample in x_samples])
+        y = torch.stack(ys, dim=0)
+        self.model.fit(x.cpu(), y.cpu())
 
 
 # ----------------------------------------------
@@ -204,7 +214,7 @@ DEFAULT_PROXIES = ProxyCollection([
     Snip(),
     ZiCo(),
     Grasp(),
-    Fisher()
+    Fisher(),
 ])
 
 
