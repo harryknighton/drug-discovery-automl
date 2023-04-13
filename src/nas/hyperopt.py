@@ -35,8 +35,6 @@ def search_hyperparameters(
     loss_proxy: Optional[Proxy] = None,
     explainability_proxy: Optional[Proxy] = None,
 ):
-    torch.set_float32_matmul_precision(params.precision)
-
     if loss_proxy is not None:
         proxies, metrics = get_fit_data(search_space, dataset, params, experiment_dir)
         labels = metrics[LOSS_METRIC]
@@ -45,6 +43,8 @@ def search_hyperparameters(
         proxies, metrics = get_fit_data(search_space, dataset, params, experiment_dir)
         labels = metrics[EXPLAINABILITY_METRIC]
         explainability_proxy.fit(proxies, labels, minimise_y=False)
+
+    torch.set_float32_matmul_precision(params.precision)
 
     # Load objects needed for HyperOpt
     objective = _prepare_objective(
@@ -256,6 +256,7 @@ def get_fit_data(
     if samples_filepath.exists():
         stacked_proxies, stacked_metrics = torch.load(samples_filepath)
     else:
+        torch.set_float32_matmul_precision('medium')
         samples_filepath.parent.mkdir(parents=True, exist_ok=True)
         proxies, metrics = sample_proxies_metrics(search_space, num_samples, dataset, params)
         stacked_proxies = {proxy: torch.stack([sample[proxy] for sample in proxies]) for proxy in proxies[0]}
