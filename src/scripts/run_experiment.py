@@ -17,7 +17,7 @@ from src.data.scaling import fit_label_scaler, Scaler, StandardScaler, MinMaxSca
 from src.data.utils import get_dataset, NamedLabelledDataset, BasicSplit, MFPCBA, KFolds, DatasetSplit
 from src.evaluation.metrics import DEFAULT_METRICS
 from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction
-from src.nas.hyperopt import search_hyperparameters, construct_search_space
+from src.nas.hyperopt import search_hyperparameters, construct_search_space, get_fit_data
 from src.nas.proxies import Proxy, DEFAULT_PROXIES, Ensemble
 from src.evaluation.reporting import generate_experiment_dir
 from src.training import run_experiment, LitGNN, HyperParameters
@@ -64,6 +64,9 @@ def main():
         _experiment(experiment_dir, dataset, params, config['models'])
     elif experiment_type == 'nas':
         _nas(experiment_dir, dataset, params, config['search'])
+    elif experiment_type == 'fit':
+        search_space = construct_search_space('simple')
+        _ = get_fit_data(search_space, dataset, params, experiment_dir)
     else:
         raise ValueError(f"Unknown experiment type {experiment_type}")
     end = timeit.default_timer()

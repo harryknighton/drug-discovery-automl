@@ -38,10 +38,12 @@ def search_hyperparameters(
     torch.set_float32_matmul_precision(params.precision)
 
     if loss_proxy is not None:
-        proxies, labels = get_fit_data(LOSS_METRIC, search_space, dataset, params, experiment_dir)
+        proxies, metrics = get_fit_data(search_space, dataset, params, experiment_dir)
+        labels = metrics[LOSS_METRIC]
         loss_proxy.fit(proxies, labels, minimise_y=True)
     if explainability_proxy is not None:
-        proxies, labels = get_fit_data(EXPLAINABILITY_METRIC, search_space, dataset, params, experiment_dir)
+        proxies, metrics = get_fit_data(search_space, dataset, params, experiment_dir)
+        labels = metrics[EXPLAINABILITY_METRIC]
         explainability_proxy.fit(proxies, labels, minimise_y=False)
 
     # Load objects needed for HyperOpt
@@ -240,7 +242,6 @@ def _save_trials(trials: hyperopt.Trials, experiment_dir: Path) -> None:
 
 
 def get_fit_data(
-    target: str,
     search_space: dict,
     dataset: NamedLabelledDataset,
     params: HyperParameters,
@@ -249,14 +250,15 @@ def get_fit_data(
 ) -> tuple[Metrics, Tensor]:
     samples_filepath = experiment_dir.parent / 'sampled_results.pt'
     if samples_filepath.exists():
-        proxies, metrics = torch.load(samples_filepath)
+        stacked_proxies, stacked_metrics = torch.load(samples_filepath)
     else:
         samples_filepath.parent.mkdir(parents=True, exist_ok=True)
         proxies, metrics = sample_proxies_metrics(search_space, num_samples, dataset, params)
-        torch.save((proxies, metrics), samples_filepath)
-    stacked_proxies = {proxy: torch.stack([sample[proxy] for sample in proxies]) for proxy in proxies[0]}
-    labels = torch.stack([metric[target] for metric in metrics])
-    return stacked_proxies, labels
+        stacked_proxies = {proxy: torch.stack([sample[proxy] for sample in proxies]) for proxy in proxies[0]}
+        stacked_metrics = {metric: torch.stack([sample[metric] for sample in metrics]) for metric in metrics[0]}
+        torch.save((stacked_proxies, stacked_metrics), samples_filepath)
+
+    return stacked_proxies, stacked_metrics
 
 
 def sample_proxies_metrics(
