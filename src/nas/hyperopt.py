@@ -9,13 +9,14 @@ import numpy as np
 import pytorch_lightning as tl
 import torch
 from hyperopt import hp, STATUS_OK, STATUS_FAIL
+from torch import Tensor
 from torch_geometric.data import LightningDataset
 
-from src.config import AUTOML_LOGGER, DEFAULT_SAVE_TRIALS_EVERY
+from src.config import AUTOML_LOGGER, DEFAULT_SAVE_TRIALS_EVERY, LOSS_METRIC, EXPLAINABILITY_METRIC
 from src.data.utils import NamedLabelledDataset, BasicSplit, split_dataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture, GNN
-from src.nas.proxies import Proxy, Ensemble
+from src.nas.proxies import Proxy
 from src.evaluation.reporting import save_run_results
 from src.training import train_model, HyperParameters, perform_run
 from src.types import Metrics
@@ -35,6 +36,13 @@ def search_hyperparameters(
     explainability_proxy: Optional[Proxy] = None,
 ):
     torch.set_float32_matmul_precision(params.precision)
+
+    if loss_proxy is not None:
+        proxies, labels = get_fit_data(LOSS_METRIC, search_space, dataset, params, experiment_dir)
+        loss_proxy.fit(proxies, labels, minimise_y=True)
+    if explainability_proxy is not None:
+        proxies, labels = get_fit_data(EXPLAINABILITY_METRIC, search_space, dataset, params, experiment_dir)
+        explainability_proxy.fit(proxies, labels, minimise_y=False)
 
     # Load objects needed for HyperOpt
     objective = _prepare_objective(
@@ -185,9 +193,9 @@ def _prepare_objective(
             if proxy.higher_is_better:
                 loss *= -1
         elif target == 'loss' and loss_explainability_ratio > 0.0:
-            loss = metrics['RootMeanSquaredError']
+            loss = metrics[LOSS_METRIC]
         elif target == 'explainability' and loss_explainability_ratio < 1.0:
-            loss = - metrics['ConceptCompleteness']
+            loss = - metrics[EXPLAINABILITY_METRIC]
         else:
             loss = 0.
         return loss
@@ -231,23 +239,24 @@ def _save_trials(trials: hyperopt.Trials, experiment_dir: Path) -> None:
         pickle.dump(trials, out)
 
 
-def fit_ensemble(
-    proxy: Ensemble,
+def get_fit_data(
     target: str,
     search_space: dict,
     dataset: NamedLabelledDataset,
     params: HyperParameters,
     experiment_dir: Path,
     num_samples: int = 100,
-) -> None:
-    samples_filepath = experiment_dir.parent / 'sampled_results.json'
+) -> tuple[Metrics, Tensor]:
+    samples_filepath = experiment_dir.parent / 'sampled_results.pt'
     if samples_filepath.exists():
         proxies, metrics = torch.load(samples_filepath)
     else:
+        samples_filepath.parent.mkdir(parents=True, exist_ok=True)
         proxies, metrics = sample_proxies_metrics(search_space, num_samples, dataset, params)
         torch.save((proxies, metrics), samples_filepath)
-    labels = [metric[target] for metric in metrics]
-    proxy.fit(proxies, labels)
+    stacked_proxies = {proxy: torch.stack([sample[proxy] for sample in proxies]) for proxy in proxies[0]}
+    labels = torch.stack([metric[target] for metric in metrics])
+    return stacked_proxies, labels
 
 
 def sample_proxies_metrics(

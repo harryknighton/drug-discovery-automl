@@ -4,6 +4,7 @@ from typing import List
 
 import torch
 import torch_geometric.nn
+from scipy.stats import pearsonr
 from sklearn.linear_model import LinearRegression
 from torch import Tensor, autograd
 from torch.nn import Module
@@ -11,6 +12,7 @@ from torch.nn.functional import mse_loss
 from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import global_add_pool
+from torchmetrics import PearsonCorrCoef
 
 from src.config import DEFAULT_PROXY_BATCH_SIZE
 from src.data.utils import NamedLabelledDataset
@@ -19,10 +21,9 @@ from src.types import Metrics
 
 
 class Proxy(ABC):
-    higher_is_better = True
-
     def __init__(self) -> None:
         self.num_samples = DEFAULT_PROXY_BATCH_SIZE
+        self.higher_is_better = None
 
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         pass
@@ -32,6 +33,11 @@ class Proxy(ABC):
         model_copy.zero_grad()
         model_copy.train()
         return self._compute(model_copy, dataset).detach()
+
+    def fit(self, xs: Metrics, y: Tensor, minimise_y: bool) -> None:
+        x = xs[self.__class__.__name__]
+        correlation = pearsonr(x.cpu(), y.cpu()).statistic
+        self.higher_is_better = correlation < 0 and minimise_y or correlation > 0 and not minimise_y
 
 
 class ProxyCollection(Proxy):
@@ -45,12 +51,15 @@ class ProxyCollection(Proxy):
     def __call__(self, model: GNNModule, dataset: NamedLabelledDataset) -> Metrics:
         return self._compute(model, dataset)
 
+    def fit(self, xs: Metrics, y: Tensor, minimise_y: bool) -> None:
+        for proxy in self.proxies.values():
+            proxy.fit(xs, y, minimise_y)
+
 
 class Ensemble(Proxy):
     def __init__(self, proxy_collection: ProxyCollection) -> None:
         super(Proxy, self).__init__()
         self.proxy_collection = proxy_collection
-        self.higher_is_better = None
         self.model = LinearRegression()
 
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
@@ -59,10 +68,10 @@ class Ensemble(Proxy):
         result = self.model.predict(x)
         return torch.tensor(result)
 
-    def fit(self, xs: List[Metrics], ys: List[Tensor]) -> None:
-        x_samples = [[sample[proxy_name] for proxy_name in self.proxy_collection.proxies] for sample in xs]
-        x = torch.stack([torch.stack(sample) for sample in x_samples])
-        y = torch.stack(ys, dim=0)
+    def fit(self, xs: Metrics, y: Tensor, minimise_y: bool) -> None:
+        self.proxy_collection.fit(xs, y, minimise_y)
+        self.higher_is_better = minimise_y
+        x = torch.stack([xs[proxy] for proxy in self.proxy_collection.proxies], dim=1)
         self.model.fit(x.cpu(), y.cpu())
 
 
@@ -72,7 +81,7 @@ class Ensemble(Proxy):
 
 class NumParams(Proxy):
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
-        return torch.tensor(sum(p.numel() for p in model.parameters() if p.requires_grad))
+        return torch.tensor(sum(p.numel() for p in model.parameters() if p.requires_grad), dtype=torch.float)
 
 
 class SynFlow(Proxy):
