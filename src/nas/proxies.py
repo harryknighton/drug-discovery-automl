@@ -12,7 +12,6 @@ from torch.nn.functional import mse_loss
 from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import global_add_pool
-from torchmetrics import PearsonCorrCoef
 
 from src.config import DEFAULT_PROXY_BATCH_SIZE
 from src.data.utils import NamedLabelledDataset
