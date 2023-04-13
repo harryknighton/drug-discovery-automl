@@ -134,6 +134,8 @@ def _prepare_objective(
         batch_size=params.batch_size, num_workers=params.num_workers
     )
     noise_generator = random.Random(params.random_seeds[0])
+    minimise_explainability = loss_explainability_ratio < 0
+    loss_explainability_ratio = abs(loss_explainability_ratio)
 
     def objective(x):
         architecture = _convert_to_gnn_architecture(x, dataset.dataset.num_features, dataset.dataset.num_classes)
@@ -182,6 +184,8 @@ def _prepare_objective(
         result['metrics'] = metrics
         test_loss = _calculate_loss('loss', metrics)
         explainability_loss = _calculate_loss('explainability', metrics)
+        if minimise_explainability:
+            explainability_loss *= -1
         result['loss'] = loss_explainability_ratio * test_loss + (1 - loss_explainability_ratio) * explainability_loss
         return result
 
