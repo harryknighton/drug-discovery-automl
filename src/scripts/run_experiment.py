@@ -122,7 +122,8 @@ def _nas(experiment_dir: Path, dataset: NamedLabelledDataset, params: HyperParam
         max_evals=search_config['max_evaluations'],
         noise_temperature=search_config['noise_temperature'],
         noise_decay=search_config['noise_decay'],
-        loss_explainability_ratio=search_config['loss_explainability_ratio'],
+        loss_explainability_ratio=search_config.get('loss_explainability_ratio', 1.0),
+        minimise_explainability=search_config.get('minimise_explainability', False),
         loss_proxy=loss_proxy,
         explainability_proxy=explainability_proxy,
     )
@@ -160,6 +161,8 @@ def _validate_config(config: dict) -> None:
             raise ValueError('Must only provide a single seed')
         if config['search']['max_evaluations'] <= 0:
             raise ValueError('Max evaluations must be positive')
+        if not 0 <= config['search']['loss_explainability_ratio'] <= 1:
+            raise ValueError("Loss Explainability ratio must be between 0 and 1")
 
 
 def _resolve_dataset_split(config: dict, dataset_name: str) -> DatasetSplit:

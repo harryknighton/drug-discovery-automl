@@ -32,6 +32,7 @@ def search_hyperparameters(
     noise_temperature: float,
     noise_decay: float,
     loss_explainability_ratio: float = 1.0,
+    minimise_explainability: bool = False,
     loss_proxy: Optional[Proxy] = None,
     explainability_proxy: Optional[Proxy] = None,
 ):
@@ -54,6 +55,7 @@ def search_hyperparameters(
         noise_temperature=noise_temperature,
         noise_decay=noise_decay,
         loss_explainability_ratio=loss_explainability_ratio,
+        minimise_explainability=minimise_explainability,
         loss_proxy=loss_proxy,
         explainability_proxy=explainability_proxy
     )
@@ -122,6 +124,7 @@ def _prepare_objective(
     noise_temperature: float,
     noise_decay: float,
     loss_explainability_ratio: float,
+    minimise_explainability: bool,
     loss_proxy: Optional[Proxy] = None,
     explainability_proxy: Optional[Proxy] = None
 ) -> Callable[[Any], Dict[str, Any]]:
@@ -134,8 +137,6 @@ def _prepare_objective(
         batch_size=params.batch_size, num_workers=params.num_workers
     )
     noise_generator = random.Random(params.random_seeds[0])
-    minimise_explainability = loss_explainability_ratio < 0
-    loss_explainability_ratio = abs(loss_explainability_ratio)
 
     def objective(x):
         architecture = _convert_to_gnn_architecture(x, dataset.dataset.num_features, dataset.dataset.num_classes)
