@@ -57,7 +57,7 @@ class LitGNN(tl.LightningModule):
         self.test_results = None
         self.explainability_metrics = explainability_metrics.clone()
         self.label_scaler = label_scaler
-        self.save_hyperparameters("params")
+        self.save_hyperparameters('model', 'params')
 
     def training_step(self, data, idx) -> Tensor:
         pred = self.model(data.x, data.edge_index, data.batch)
