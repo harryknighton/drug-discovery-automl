@@ -185,7 +185,7 @@ def _prepare_objective(
 
         result = _calculate_result(metrics, status)
 
-        if objective.noise_temperature > 0 and 'loss' in result:
+        if objective.noise_temperature > 1e-5 and 'loss' in result:
             noise = noise_generator.random()
             result['loss'] += noise * objective.noise_temperature
             objective.noise_temperature *= noise_decay
