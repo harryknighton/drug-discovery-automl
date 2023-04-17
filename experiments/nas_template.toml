@@ -6,7 +6,6 @@ seeds = [0]
 algorithm = 'random'
 max_evaluations = 500
 search_space = 'simple'
-noise_temperature = 0.1
 noise_decay = 0.96
 # proxy = JacobianCovariance
 

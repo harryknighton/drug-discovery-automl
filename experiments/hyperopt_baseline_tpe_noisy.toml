@@ -1,12 +1,13 @@
 type = 'nas'
 
-seeds = [3333]
+seeds = [1515]
 
 [search]
 algorithm = 'tpe'
 max_evaluations = 500
 search_space = 'simple'
-loss_explainability_ratio = 0.0
+noise_decay = 0.96  # Decay to 1% over the first 100 epochs
+loss_explainability_ratio = 1.0
 
 [data]
 label_scaler = 'standard'

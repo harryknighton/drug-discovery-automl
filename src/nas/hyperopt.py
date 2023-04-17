@@ -16,7 +16,7 @@ from src.config import AUTOML_LOGGER, DEFAULT_SAVE_TRIALS_EVERY, LOSS_METRIC, EX
 from src.data.utils import NamedLabelledDataset, BasicSplit, split_dataset
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture, GNN
-from src.nas.proxies import Proxy
+from src.nas.proxies import Proxy, Ensemble
 from src.evaluation.reporting import save_run_results
 from src.training import train_model, HyperParameters, perform_run
 from src.types import Metrics
@@ -29,12 +29,11 @@ def search_hyperparameters(
     search_space: dict,
     algorithm: Callable,
     max_evals: int,
-    noise_temperature: float,
-    noise_decay: float,
     loss_explainability_ratio: float = 1.0,
     minimise_explainability: bool = False,
     loss_proxy: Optional[Proxy] = None,
     explainability_proxy: Optional[Proxy] = None,
+    noise_decay: Optional[float] = None,
 ):
     if loss_proxy is not None:
         proxies, metrics = get_fit_data(search_space, dataset, params, experiment_dir)
@@ -44,6 +43,22 @@ def search_hyperparameters(
         proxies, metrics = get_fit_data(search_space, dataset, params, experiment_dir)
         labels = metrics[EXPLAINABILITY_METRIC]
         explainability_proxy.fit(proxies, labels, minimise_y=False)
+
+    noise_temperature = 0.0
+    if noise_decay is not None:
+        proxies, metrics = get_fit_data(search_space, dataset, params, experiment_dir)
+        if 0 < loss_explainability_ratio <= 1:
+            if loss_proxy is None or isinstance(loss_proxy, Ensemble):
+                noise = metrics[LOSS_METRIC].std(0)
+            else:
+                noise = proxies[loss_proxy.__class__.__name__].std(0)
+            noise_temperature += noise * loss_explainability_ratio
+        if 0 <= loss_explainability_ratio < 1:
+            if explainability_proxy is None or isinstance(explainability_proxy, Ensemble):
+                noise = metrics[EXPLAINABILITY_METRIC].std(0)
+            else:
+                noise = proxies[explainability_proxy.__class__.__name__].std(0)
+            noise_temperature += noise * (1 - loss_explainability_ratio)
 
     torch.set_float32_matmul_precision(params.precision)
 

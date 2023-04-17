@@ -6,8 +6,6 @@ seeds = [1515]
 algorithm = 'tpe'
 max_evaluations = 500
 search_space = 'simple'
-noise_temperature = 0.0
-noise_decay = 0.0
 loss_explainability_ratio = 1.0
 
 [data]
