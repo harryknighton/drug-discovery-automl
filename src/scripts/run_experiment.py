@@ -16,11 +16,12 @@ from src.data.hts import DatasetUsage
 from src.data.scaling import fit_label_scaler, Scaler, StandardScaler, MinMaxScaler
 from src.data.utils import get_dataset, NamedLabelledDataset, BasicSplit, MFPCBA, KFolds, DatasetSplit
 from src.evaluation.metrics import DEFAULT_METRICS
-from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction
+from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction, \
+    GNNArchitecture, RegressionArchitecture, build_uniform_regression_layer_architecture
 from src.nas.hyperopt import search_hyperparameters, construct_search_space, get_fit_data
 from src.nas.proxies import Proxy, DEFAULT_PROXIES, Ensemble
 from src.evaluation.reporting import generate_experiment_dir
-from src.training import run_experiment, LitGNN, HyperParameters
+from src.training import run_experiment, LitGNN, HyperParameters, perform_run
 
 
 def main():
@@ -62,6 +63,8 @@ def main():
     start = timeit.default_timer()
     if experiment_type == 'experiment':
         _experiment(experiment_dir, dataset, params, config['models'])
+    elif experiment_type == 'run':
+        _run(experiment_dir, dataset, params, config['model'])
     elif experiment_type == 'nas':
         _nas(experiment_dir, dataset, params, config['search'])
     elif experiment_type == 'fit':
@@ -103,6 +106,31 @@ def _experiment(experiment_dir: Path, dataset: NamedLabelledDataset, params: Hyp
         dataset=dataset,
         architectures=architectures,
         params=params,
+    )
+
+
+def _run(experiment_dir: Path, dataset: NamedLabelledDataset, params: HyperParameters, model_config: dict) -> None:
+    regression_architecture = build_uniform_regression_layer_architecture(
+        input_features=model_config['features'][-1],
+        hidden_features=model_config['regression_features'],
+        output_features=dataset.dataset.num_classes,
+        num_layers=model_config['num_regression_layers'],
+        batch_normalise=True
+    )
+    architecture = GNNArchitecture(
+        layer_types=_resolve_layers(model_config),
+        features=[dataset.dataset.num_node_features] + model_config['features'],
+        activation_funcs=[ActivationFunction.ReLU] * model_config['num_layers'],
+        pool_func=PoolingFunction[model_config['pooling_function']],
+        batch_normalise=[True] * model_config['num_layers'],
+        regression_layer=regression_architecture
+    )
+    perform_run(
+        dataset,
+        architecture,
+        params,
+        experiment_dir,
+        run_name='best_model'
     )
 
 

@@ -1,0 +1,21 @@
+type = 'run'
+
+seeds = [4226]
+
+[model]
+num_layers = 1
+layer_types = ['GCN']
+features = [248]
+num_regression_layers = 2
+regression_features = 64
+pooling_function = 'MEAN'
+
+[data]
+label_scaler = 'standard'
+use_mf_pcba_splits = true
+# k_folds = 0
+num_workers = 32
+
+[training]
+max_epochs = 100
+early_stop_patience = 30

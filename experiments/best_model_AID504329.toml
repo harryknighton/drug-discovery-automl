@@ -1,0 +1,21 @@
+type = 'run'
+
+seeds = [4226]
+
+[model]
+num_layers = 3
+layer_types = ['GATv2', 'GIN', 'GIN']
+features = [232, 232, 232]
+num_regression_layers = 2
+regression_features = 64
+pooling_function = 'ADD'
+
+[data]
+label_scaler = 'standard'
+use_mf_pcba_splits = true
+# k_folds = 0
+num_workers = 32
+
+[training]
+max_epochs = 100
+early_stop_patience = 30
