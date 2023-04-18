@@ -1,0 +1,16 @@
+type = 'nas'
+
+seeds = [2409]
+
+[search]
+algorithm = 'random'
+max_evaluations = 500
+search_space = 'simple'
+loss_explainability_ratio = 0.0
+
+[data]
+label_scaler = 'standard'
+
+[training]
+max_epochs = 100
+early_stop_patience = 30
