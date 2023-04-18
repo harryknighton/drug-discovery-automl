@@ -14,7 +14,6 @@ explainability_proxy = 'SynFlow'
 
 [data]
 label_scaler = 'standard'
-num_workers = 0
 
 [training]
 max_epochs = 1

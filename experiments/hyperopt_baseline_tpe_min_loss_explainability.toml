@@ -11,7 +11,6 @@ minimise_explainability = true
 
 [data]
 label_scaler = 'standard'
-num_workers = 32
 
 [training]
 max_epochs = 100

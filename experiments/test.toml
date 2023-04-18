@@ -14,7 +14,6 @@ pooling_functions = ['ADD']
 label_scaler = 'standard'
 # use_mf_pcba_splits = true
 # k_folds = 2
-num_workers = 0
 
 [training]
 max_epochs = 1

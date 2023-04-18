@@ -14,7 +14,6 @@ pooling_function = 'MAX'
 label_scaler = 'standard'
 use_mf_pcba_splits = true
 # k_folds = 0
-num_workers = 32
 
 [training]
 max_epochs = 100

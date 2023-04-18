@@ -29,6 +29,7 @@ def main():
     parser.add_argument('-N', '--experiment-name', type=str, required=True)
     parser.add_argument('-D', '--dataset', type=str, required=True)
     parser.add_argument('-d', '--dataset-usage', type=str, required=True, choices=[d.name for d in DatasetUsage])
+    parser.add_argument('-n', '--num-workers', type=int, required=False, default=0)
     args = vars(parser.parse_args())
     config = _load_config(args['experiment_name'])
 
@@ -58,7 +59,7 @@ def main():
         early_stop_min_delta=DEFAULT_EARLY_STOP_DELTA,
         lr=DEFAULT_LR,
         max_epochs=config['training']['max_epochs'],
-        num_workers=config['data']['num_workers'],
+        num_workers=args['num_workers'],
         label_scaler=label_scaler_type,
         precision=DEFAULT_PRECISION
     )

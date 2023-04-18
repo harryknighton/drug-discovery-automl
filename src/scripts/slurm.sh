@@ -15,6 +15,6 @@ source /home/h/hjk51/dev/torch_1_13_1/bin/activate
 
 date;
 
-CUDA_VISIBLE_DEVICES=0 python -m src.scripts.run_experiment --experiment-name "$1" --dataset "$2" --dataset-usage "$3";
+CUDA_VISIBLE_DEVICES=0 python -m src.scripts.run_experiment --experiment-name "$1" --dataset "$2" --dataset-usage "$3" --num-workers 32;
 
 date;
