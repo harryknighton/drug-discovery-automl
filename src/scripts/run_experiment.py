@@ -45,7 +45,7 @@ def main():
     experiment_dir = generate_experiment_dir(dataset, args['experiment_name'])
     experiment_type = config['type']
 
-    if experiment_dir.exists():
+    if experiment_type != 'nas' and experiment_dir.exists():
         AUTOML_LOGGER.error("Experiment logs already exist")
         return
 
