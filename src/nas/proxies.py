@@ -104,8 +104,11 @@ class JacobianCovariance(Proxy):
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         jacobian = self._compute_batch_jacobian(model, dataset)
         correlations = torch.corrcoef(jacobian)
-        _, log_determinant = torch.slogdet(correlations)
-        return log_determinant
+        sign, log_determinant = torch.slogdet(correlations)
+        if sign == 0:
+            return torch.tensor(0.)
+        else:
+            return log_determinant
 
     def _compute_batch_jacobian(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         batch = _get_data_samples(dataset.dataset, self.num_samples)
