@@ -17,7 +17,7 @@ from src.data.scaling import fit_label_scaler, Scaler, StandardScaler, MinMaxSca
 from src.data.utils import get_dataset, NamedLabelledDataset, BasicSplit, MFPCBA, KFolds, DatasetSplit
 from src.evaluation.metrics import DEFAULT_METRICS
 from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction, \
-    GNNArchitecture, RegressionArchitecture, build_uniform_regression_layer_architecture
+    GNNArchitecture, build_uniform_regression_layer_architecture
 from src.nas.hyperopt import search_hyperparameters, construct_search_space, get_fit_data
 from src.nas.proxies import Proxy, DEFAULT_PROXIES, Ensemble
 from src.evaluation.reporting import generate_experiment_dir
@@ -57,7 +57,7 @@ def main():
         precision=DEFAULT_PRECISION
     )
 
-    experiment_dir = generate_experiment_dir(dataset, args['experiment_name'], version=args['version'])
+    experiment_dir = generate_experiment_dir(dataset, args['experiment_name'])
     experiment_type = config['type']
     AUTOML_LOGGER.info(f"Starting experiment {args['experiment_name']} at {experiment_dir}")
     start = timeit.default_timer()

@@ -2,7 +2,6 @@ import json
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
@@ -12,19 +11,12 @@ from src.data.utils import NamedLabelledDataset
 from src.types import Metrics
 
 
-def generate_experiment_dir(dataset: NamedLabelledDataset, experiment_name: str, version: Optional[int] = None) -> Path:
+def generate_experiment_dir(dataset: NamedLabelledDataset, experiment_name: str) -> Path:
     experiment_dir = LOG_DIR / dataset.name
     if isinstance(dataset.dataset, HTSDataset):
         experiment_dir /= dataset.dataset.dataset_usage.name
     experiment_dir /= experiment_name
-    if version is not None:
-        return Path(f'{experiment_dir}_{version}')
-    counter = 0
-    version_dir = Path(str(experiment_dir) + '_0')
-    while version_dir.exists():
-        counter += 1
-        version_dir = Path(str(experiment_dir) + '_' + str(counter))
-    return version_dir
+    return experiment_dir
 
 
 def generate_run_name() -> str:
