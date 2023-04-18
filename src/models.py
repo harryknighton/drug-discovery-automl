@@ -230,3 +230,24 @@ def build_uniform_regression_layer_architecture(
         activation_funcs=[ActivationFunction.ReLU] * (num_layers - 1) + [None],
         batch_normalise=[batch_normalise] * (num_layers - 1) + [False],
     )
+
+
+def string_to_architecture(str_architecture: str) -> GNNArchitecture:
+    arch = str_architecture.replace(']Batch', '], Batch')  # For compatibility with an old buggy version
+    arch = arch.replace(': ', '=')
+    arch = arch.replace('Layers', 'layer_types')
+    arch = arch.replace('Features', 'features')
+    arch = arch.replace('Activation Functions', 'activation_funcs')
+    arch = arch.replace('Batch Normalise', 'batch_normalise')
+    arch = arch.replace('Pool Function', 'pool_func')
+    arch = arch.replace('Regression Layer', 'regression_layer')
+    for layer in GNNLayerType:
+        arch = arch.replace(layer.name + ',', 'GNNLayerType.' + layer.name + ',')
+        arch = arch.replace(layer.name + ']', 'GNNLayerType.' + layer.name + ']')
+    for layer in RegressionLayerType:
+        arch = arch.replace(layer.name, 'RegressionLayerType.' + layer.name)
+    for pool_func in PoolingFunction:
+        arch = arch.replace(pool_func.name, 'PoolingFunction.' + pool_func.name)
+    for activation in ActivationFunction:
+        arch = arch.replace(activation.name, 'ActivationFunction.' + activation.name)
+    return eval(arch)
