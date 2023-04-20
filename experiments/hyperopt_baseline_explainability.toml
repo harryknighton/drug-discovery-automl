@@ -7,6 +7,7 @@ algorithm = 'random'
 max_evaluations = 500
 search_space = 'simple'
 loss_explainability_ratio = 0.0
+minimise_explainability = false
 
 [data]
 label_scaler = 'standard'

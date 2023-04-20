@@ -1,13 +1,13 @@
 type = 'nas'
 
-seeds = [3333]
+seeds = [6097]
 
 [search]
 algorithm = 'tpe'
 max_evaluations = 500
 search_space = 'simple'
-loss_explainability_ratio = 0.0
-minimise_explainability = false
+loss_explainability_ratio = 0.75
+minimise_explainability = true
 
 [data]
 label_scaler = 'standard'

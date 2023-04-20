@@ -12,14 +12,21 @@ from hyperopt import hp, STATUS_OK, STATUS_FAIL
 from torch import Tensor
 from torch_geometric.data import LightningDataset
 
-from src.config import AUTOML_LOGGER, DEFAULT_SAVE_TRIALS_EVERY, LOSS_METRIC, EXPLAINABILITY_METRIC
+from src.config import AUTOML_LOGGER, DEFAULT_SAVE_TRIALS_EVERY
 from src.data.utils import NamedLabelledDataset, BasicSplit, split_dataset
+from src.evaluation.explainability import ConceptCompleteness
+from src.evaluation.metrics import RootMeanSquaredError
 from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture, GNN
 from src.nas.proxies import Proxy, Ensemble
 from src.evaluation.reporting import save_run_results
 from src.training import train_model, HyperParameters, perform_run
 from src.types import Metrics
+
+
+# Metrics used as optimisation targets for NAS
+LOSS_METRIC = RootMeanSquaredError
+EXPLAINABILITY_METRIC = ConceptCompleteness
 
 
 def search_hyperparameters(
@@ -35,27 +42,31 @@ def search_hyperparameters(
     explainability_proxy: Optional[Proxy] = None,
     noise_decay: Optional[float] = None,
 ):
+    # Fit proxies to target metrics
     if loss_proxy is not None:
         proxies, metrics = get_fit_data(search_space, dataset, params, experiment_dir)
-        labels = metrics[LOSS_METRIC]
-        loss_proxy.fit(proxies, labels, minimise_y=True)
+        labels = metrics[LOSS_METRIC.__name__]
+        loss_proxy.fit(proxies, labels, minimise_label=not LOSS_METRIC.higher_is_better)
     if explainability_proxy is not None:
         proxies, metrics = get_fit_data(search_space, dataset, params, experiment_dir)
-        labels = metrics[EXPLAINABILITY_METRIC]
-        explainability_proxy.fit(proxies, labels, minimise_y=False)
+        labels = metrics[EXPLAINABILITY_METRIC.__name__]
+        explainability_proxy.fit(proxies, labels, minimise_label=not EXPLAINABILITY_METRIC.higher_is_better)
 
+    # Scale noise temperature to magnitude of target metric
     noise_temperature = 0.0
     if noise_decay is not None:
         proxies, metrics = get_fit_data(search_space, dataset, params, experiment_dir)
+        # Add loss component of the noise
         if 0 < loss_explainability_ratio <= 1:
             if loss_proxy is None or isinstance(loss_proxy, Ensemble):
-                noise = metrics[LOSS_METRIC].std(0)
+                noise = metrics[LOSS_METRIC.__name__].std(0)
             else:
                 noise = proxies[loss_proxy.__class__.__name__].std(0)
             noise_temperature += noise * loss_explainability_ratio
+        # Add explainability component of the noise
         if 0 <= loss_explainability_ratio < 1:
             if explainability_proxy is None or isinstance(explainability_proxy, Ensemble):
-                noise = metrics[EXPLAINABILITY_METRIC].std(0)
+                noise = metrics[EXPLAINABILITY_METRIC.__name__].std(0)
             else:
                 noise = proxies[explainability_proxy.__class__.__name__].std(0)
             noise_temperature += noise * (1 - loss_explainability_ratio)
@@ -98,6 +109,7 @@ def search_hyperparameters(
             gc.collect()
             torch.cuda.empty_cache()
 
+    # Save best architecture
     if best is None:
         return
     best_hyperopt_architecture = hyperopt.space_eval(search_space, best)
@@ -208,8 +220,6 @@ def _prepare_objective(
         result['metrics'] = metrics
         test_loss = _calculate_loss('loss', metrics)
         explainability_loss = _calculate_loss('explainability', metrics)
-        if minimise_explainability:
-            explainability_loss *= -1
         result['loss'] = loss_explainability_ratio * test_loss + (1 - loss_explainability_ratio) * explainability_loss
         return result
 
@@ -223,9 +233,15 @@ def _prepare_objective(
             if proxy.higher_is_better:
                 loss *= -1
         elif target == 'loss' and loss_explainability_ratio > 0.0:
-            loss = metrics[LOSS_METRIC]
+            loss = metrics[LOSS_METRIC.__name__]
+            if LOSS_METRIC.higher_is_better:
+                loss *= -1
         elif target == 'explainability' and loss_explainability_ratio < 1.0:
-            loss = - metrics[EXPLAINABILITY_METRIC]
+            loss = metrics[EXPLAINABILITY_METRIC.__name__]
+            if EXPLAINABILITY_METRIC.higher_is_better:
+                loss *= -1
+            if minimise_explainability:
+                loss *= -1
         else:
             loss = 0.
         return loss

@@ -8,6 +8,7 @@ max_evaluations = 10000
 search_space = 'simple'
 loss_explainability_ratio = 0.0
 loss_proxy = 'Ensemble'
+minimise_explainability = false
 
 [data]
 label_scaler = 'standard'

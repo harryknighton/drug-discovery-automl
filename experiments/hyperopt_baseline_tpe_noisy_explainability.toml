@@ -8,6 +8,7 @@ max_evaluations = 500
 search_space = 'simple'
 noise_decay = 0.96  # Decay to 1% over the first 100 epochs
 loss_explainability_ratio = 0.0
+minimise_explainability = false
 
 [data]
 label_scaler = 'standard'

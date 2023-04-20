@@ -40,9 +40,5 @@ DEFAULT_PRECISION = 'medium'
 # Number of data samples to use for proxy calculation
 DEFAULT_PROXY_BATCH_SIZE = 64
 
-# Metrics used as optimisation targets for NAS
-LOSS_METRIC = 'RootMeanSquaredError'
-EXPLAINABILITY_METRIC = 'ConceptCompleteness'
-
 MIN_SEED = 0
 MAX_SEED = 1e6

@@ -33,10 +33,10 @@ class Proxy(ABC):
         model_copy.train()
         return self._compute(model_copy, dataset).detach()
 
-    def fit(self, xs: Metrics, y: Tensor, minimise_y: bool) -> None:
+    def fit(self, xs: Metrics, y: Tensor, minimise_label: bool) -> None:
         x = xs[self.__class__.__name__]
         correlation = pearsonr(x.cpu(), y.cpu()).statistic
-        self.higher_is_better = correlation < 0 and minimise_y or correlation > 0 and not minimise_y
+        self.higher_is_better = correlation < 0 and minimise_label or correlation > 0 and not minimise_label
 
 
 class ProxyCollection(Proxy):
@@ -50,9 +50,9 @@ class ProxyCollection(Proxy):
     def __call__(self, model: GNNModule, dataset: NamedLabelledDataset) -> Metrics:
         return self._compute(model, dataset)
 
-    def fit(self, xs: Metrics, y: Tensor, minimise_y: bool) -> None:
+    def fit(self, xs: Metrics, y: Tensor, minimise_label: bool) -> None:
         for proxy in self.proxies.values():
-            proxy.fit(xs, y, minimise_y)
+            proxy.fit(xs, y, minimise_label)
 
 
 class Ensemble(Proxy):
@@ -67,9 +67,9 @@ class Ensemble(Proxy):
         result = self.model.predict(x.cpu())
         return torch.tensor(result, device=x.device)
 
-    def fit(self, xs: Metrics, y: Tensor, minimise_y: bool) -> None:
-        self.proxy_collection.fit(xs, y, minimise_y)
-        self.higher_is_better = minimise_y
+    def fit(self, xs: Metrics, y: Tensor, minimise_label: bool) -> None:
+        self.proxy_collection.fit(xs, y, minimise_label)
+        self.higher_is_better = minimise_label
         x = torch.stack([xs[proxy] for proxy in self.proxy_collection.proxies], dim=1)
         self.model.fit(x.cpu(), y.cpu())
 
@@ -246,6 +246,3 @@ def _get_linear_layers(model: GNNModule) -> List[torch.nn.Linear | torch_geometr
         module for module in model.modules()
         if isinstance(module, torch.nn.Linear) or isinstance(module, torch_geometric.nn.Linear)
     ]
-
-
-
