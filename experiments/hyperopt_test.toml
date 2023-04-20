@@ -9,7 +9,7 @@ search_space = 'simple'
 noise_decay = 0.1
 loss_explainability_ratio = 0.5
 minimise_explainability = true
-explainability_proxy = 'SynFlow'
+explainability_proxy = 'JacobianCovariance'
 
 [data]
 label_scaler = 'standard'

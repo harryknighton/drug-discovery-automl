@@ -28,7 +28,8 @@ class Proxy(ABC):
         pass
 
     def __call__(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
-        model_copy = copy.deepcopy(model)
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        model_copy = copy.deepcopy(model).to(device)
         model_copy.zero_grad()
         model_copy.train()
         return self._compute(model_copy, dataset).detach()
@@ -114,7 +115,7 @@ class JacobianCovariance(Proxy):
             return log_determinant
 
     def _compute_batch_jacobian(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
-        batch = _get_data_samples(dataset.dataset, self.num_samples)
+        batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         batch.x.requires_grad_(True)
         preds = model(batch.x, batch.edge_index, batch.batch)
         jacob = autograd.grad(preds, batch.x, torch.ones_like(preds))[0]
@@ -125,7 +126,7 @@ class JacobianCovariance(Proxy):
 
 class GradientNorm(Proxy):
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
-        batch = _get_data_samples(dataset.dataset, self.num_samples)
+        batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         preds = model(batch.x, batch.edge_index, batch.batch)
         scaled_preds = dataset.label_scaler.inverse_transform(preds)
         loss = mse_loss(scaled_preds.flatten(), batch.y)
@@ -136,7 +137,7 @@ class GradientNorm(Proxy):
 
 class Snip(Proxy):
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
-        batch = _get_data_samples(dataset.dataset, self.num_samples)
+        batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         weights = _get_model_weights(model)
         preds = model(batch.x, batch.edge_index, batch.batch)
         scaled_preds = dataset.label_scaler.inverse_transform(preds)
@@ -148,7 +149,7 @@ class Snip(Proxy):
 
 class ZiCo(Proxy):
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
-        batch = _get_data_samples(dataset.dataset, self.num_samples)
+        batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         weights = _get_model_weights(model)
         preds = model(batch.x, batch.edge_index, batch.batch)
         scaled_preds = dataset.label_scaler.inverse_transform(preds)
@@ -172,7 +173,7 @@ class NASI(Proxy):
 
 class Grasp(Proxy):
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
-        batch = _get_data_samples(dataset.dataset, self.num_samples)
+        batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         weights = _get_model_weights(model)
         preds = model(batch.x, batch.edge_index, batch.batch)
         scaled_preds = dataset.label_scaler.inverse_transform(preds)
@@ -197,7 +198,7 @@ class Fisher(Proxy):
         hook_handles = [layer.register_forward_hook(activation_hook) for layer in linear_layers]
 
         # Run data through model to calculate activations
-        batch = _get_data_samples(dataset.dataset, self.num_samples)
+        batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         preds = model(batch.x, batch.edge_index, batch.batch)
         scaled_preds = dataset.label_scaler.inverse_transform(preds)
         loss = mse_loss(scaled_preds.flatten(), batch.y)
@@ -233,8 +234,10 @@ DEFAULT_PROXIES = ProxyCollection([
 ])
 
 
-def _get_data_samples(dataset: Dataset, num_samples: int) -> Data:
-    return next(iter(DataLoader(dataset, batch_size=num_samples, shuffle=False)))
+def _get_data_samples(model: GNNModule, dataset: Dataset, num_samples: int) -> Data:
+    device = next(model.parameters()).device
+    data = next(iter(DataLoader(dataset, batch_size=num_samples, shuffle=False)))
+    return data.to(device)
 
 
 def _get_model_weights(model: GNNModule) -> List[Tensor]:
