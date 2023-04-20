@@ -133,6 +133,7 @@ def perform_run(
     params: HyperParameters,
     experiment_dir: Optional[Path] = None,
     run_name: Optional[str] = None,
+    calculate_proxies: bool = True,
 ) -> Tuple[dict[str, Metrics], dict[str, Metrics]]:
     """Perform multiple runs using k-fold cross validation and return the average results"""
     save_logs = experiment_dir is not None
@@ -155,15 +156,18 @@ def perform_run(
                 train_dataset, val_dataset, test_dataset,
                 batch_size=params.batch_size, num_workers=params.num_workers
             )
-            run_proxies[version] = detach_metrics(DEFAULT_PROXIES(model, dataset))
+            if calculate_proxies:
+                run_proxies[version] = detach_metrics(DEFAULT_PROXIES(model, dataset))
             run_metrics[version] = train_model(
                 model, params, datamodule, dataset.label_scaler, run_dir,
                 version=version, save_logs=save_logs, save_checkpoints=save_logs,
             )
     if save_logs:
-        save_run_results(run_proxies, run_dir, 'proxies')
         save_run_results(run_metrics, run_dir, 'metrics')
-    return run_proxies, run_metrics
+        if calculate_proxies:
+            save_run_results(run_proxies, run_dir, 'proxies')
+
+    return (run_proxies, run_metrics) if calculate_proxies else run_metrics
 
 
 def train_model(

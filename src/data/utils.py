@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import List, Any, Optional
 
 import numpy as np
+import torch
 import torch_geometric
 from sklearn import model_selection
 from torch_geometric.data import Dataset
@@ -17,6 +18,10 @@ class NamedLabelledDataset:
         self.name = name
         self.dataset = dataset
         self.label_scaler = label_scaler
+
+    def to(self, device: torch.device | str) -> None:
+        self.label_scaler = self.label_scaler.to(device)
+        self.dataset.data = self.dataset.data.to(device)
 
 
 class DatasetSplit(ABC):

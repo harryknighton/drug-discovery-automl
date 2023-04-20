@@ -107,7 +107,11 @@ def search_hyperparameters(
         output_features=dataset.dataset.num_classes,
     )
     if loss_proxy is not None or explainability_proxy is not None:
-        proxies, metrics = perform_run(dataset, best_architecture, params, experiment_dir, run_name='best_architecture')
+        dataset.to('cpu')  # Needed to avoid crash with Pytorch Lightning
+        metrics = perform_run(
+            dataset, best_architecture, params, experiment_dir,
+            run_name='best_architecture', calculate_proxies=False
+        )
     else:
         metrics = trials.best_trial['result']['metrics']
         save_run_results({str(best_architecture): metrics}, experiment_dir, 'best_architecture')
@@ -147,8 +151,7 @@ def _prepare_objective(
     assert isinstance(params.dataset_split, BasicSplit)
 
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    dataset.dataset.data = dataset.dataset.data.to(device)
-    dataset.label_scaler = dataset.label_scaler.to(device)
+    dataset.to(device)
 
     test_dataset, training_dataset = split_dataset(dataset.dataset, params.dataset_split.test_split)
     train_dataset, val_dataset = split_dataset(training_dataset, params.dataset_split.train_val_split)
