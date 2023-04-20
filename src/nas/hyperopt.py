@@ -119,7 +119,6 @@ def search_hyperparameters(
         output_features=dataset.dataset.num_classes,
     )
     if loss_proxy is not None or explainability_proxy is not None:
-        dataset.to('cpu')  # Needed to avoid crash with Pytorch Lightning
         metrics = perform_run(
             dataset, best_architecture, params, experiment_dir,
             run_name='best_architecture', calculate_proxies=False
@@ -169,7 +168,8 @@ def _prepare_objective(
     train_dataset, val_dataset = split_dataset(training_dataset, params.dataset_split.train_val_split)
     datamodule = LightningDataset(
         train_dataset, val_dataset, test_dataset,
-        batch_size=params.batch_size, num_workers=params.num_workers
+        batch_size=params.batch_size, num_workers=params.num_workers,
+        pin_memory=not train_dataset.data.is_cuda
     )
     noise_generator = random.Random(params.random_seeds[0])
 

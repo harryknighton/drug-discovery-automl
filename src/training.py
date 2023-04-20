@@ -154,7 +154,8 @@ def perform_run(
             model = GNN(architecture)
             datamodule = LightningDataset(
                 train_dataset, val_dataset, test_dataset,
-                batch_size=params.batch_size, num_workers=params.num_workers
+                batch_size=params.batch_size, num_workers=params.num_workers,
+                pin_memory=not train_dataset.data.is_cuda
             )
             if calculate_proxies:
                 run_proxies[version] = detach_metrics(DEFAULT_PROXIES(model, dataset))
