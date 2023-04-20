@@ -64,8 +64,8 @@ class Ensemble(Proxy):
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         proxies = self.proxy_collection(model, dataset)
         x = torch.stack(list(proxies.values())).reshape(1, -1)
-        result = self.model.predict(x)
-        return torch.tensor(result)
+        result = self.model.predict(x.cpu())
+        return torch.tensor(result, device=x.device)
 
     def fit(self, xs: Metrics, y: Tensor, minimise_y: bool) -> None:
         self.proxy_collection.fit(xs, y, minimise_y)
@@ -80,16 +80,19 @@ class Ensemble(Proxy):
 
 class NumParams(Proxy):
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
-        return torch.tensor(sum(p.numel() for p in model.parameters() if p.requires_grad), dtype=torch.float)
+        return torch.tensor(
+            sum(p.numel() for p in model.parameters() if p.requires_grad),
+            dtype=torch.float, device=next(model.parameters()).device
+        )
 
 
 class SynFlow(Proxy):
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         weights = _get_model_weights(model)
         preds = model(
-            x=torch.ones(1, dataset.dataset.num_features, dtype=torch.float),
-            edge_index=torch.tensor([[0], [0]], dtype=torch.long),
-            batch=torch.tensor([0], dtype=torch.long)
+            x=torch.ones(1, dataset.dataset.num_features, dtype=torch.float, device=weights[0].device),
+            edge_index=torch.tensor([[0], [0]], dtype=torch.long, device=weights[0].device),
+            batch=torch.tensor([0], dtype=torch.long, device=weights[0].device)
         )
         loss = preds.sum()
         first_derivatives = autograd.grad(loss, weights, allow_unused=True)

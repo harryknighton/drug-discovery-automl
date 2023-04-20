@@ -145,6 +145,11 @@ def _prepare_objective(
 ) -> Callable[[Any], Dict[str, Any]]:
     tl.seed_everything(params.random_seeds[0], workers=True)
     assert isinstance(params.dataset_split, BasicSplit)
+
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    dataset.dataset.data = dataset.dataset.data.to(device)
+    dataset.label_scaler = dataset.label_scaler.to(device)
+
     test_dataset, training_dataset = split_dataset(dataset.dataset, params.dataset_split.test_split)
     train_dataset, val_dataset = split_dataset(training_dataset, params.dataset_split.train_val_split)
     datamodule = LightningDataset(
@@ -155,7 +160,7 @@ def _prepare_objective(
 
     def objective(x):
         architecture = _convert_to_gnn_architecture(x, dataset.dataset.num_features, dataset.dataset.num_classes)
-        model = GNN(architecture)
+        model = GNN(architecture).to(device)
         AUTOML_LOGGER.debug("Evaluating architecture " + str(architecture))
         metrics = {}
         status = STATUS_OK
