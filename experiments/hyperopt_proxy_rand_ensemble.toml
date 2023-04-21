@@ -1,0 +1,17 @@
+type = 'nas'
+
+seeds = [6167]
+
+[search]
+algorithm = 'random'
+max_evaluations = 500
+search_space = 'simple'
+loss_explainability_ratio = 1.0
+loss_proxy = 'Ensemble'
+
+[data]
+label_scaler = 'standard'
+
+[training]
+max_epochs = 100
+early_stop_patience = 30
