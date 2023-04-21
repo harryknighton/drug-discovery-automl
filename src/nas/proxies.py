@@ -32,7 +32,7 @@ class Proxy(ABC):
         model_copy = copy.deepcopy(model).to(device)
         model_copy.zero_grad()
         model_copy.train()
-        return self._compute(model_copy, dataset).detach()
+        return self._compute(model_copy, dataset).detach().cpu()
 
     def fit(self, xs: Metrics, y: Tensor, minimise_label: bool) -> None:
         x = xs[self.__class__.__name__]
@@ -65,8 +65,8 @@ class Ensemble(Proxy):
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         proxies = self.proxy_collection(model, dataset)
         x = torch.stack(list(proxies.values())).reshape(1, -1)
-        result = self.model.predict(x.cpu())
-        return torch.tensor(result, device=x.device)
+        result = self.model.predict(x)
+        return torch.tensor(result)
 
     def fit(self, xs: Metrics, y: Tensor, minimise_label: bool) -> None:
         self.proxy_collection.fit(xs, y, minimise_label)
@@ -128,7 +128,7 @@ class GradientNorm(Proxy):
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         preds = model(batch.x, batch.edge_index, batch.batch)
-        scaled_preds = dataset.label_scaler.inverse_transform(preds)
+        scaled_preds = dataset.label_scaler.to(preds.device).inverse_transform(preds)
         loss = mse_loss(scaled_preds.flatten(), batch.y)
         weights = _get_model_weights(model)
         gradients = autograd.grad(loss, weights)
@@ -140,7 +140,7 @@ class Snip(Proxy):
         batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         weights = _get_model_weights(model)
         preds = model(batch.x, batch.edge_index, batch.batch)
-        scaled_preds = dataset.label_scaler.inverse_transform(preds)
+        scaled_preds = dataset.label_scaler.to(preds.device).inverse_transform(preds)
         loss = mse_loss(scaled_preds.flatten(), batch.y)
         first_derivatives = autograd.grad(loss, weights, allow_unused=True)
         snip_per_weight = [(weight * coefficients).abs().sum() for weight, coefficients in zip(weights, first_derivatives)]
@@ -152,7 +152,7 @@ class ZiCo(Proxy):
         batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         weights = _get_model_weights(model)
         preds = model(batch.x, batch.edge_index, batch.batch)
-        scaled_preds = dataset.label_scaler.inverse_transform(preds)
+        scaled_preds = dataset.label_scaler.to(preds.device).inverse_transform(preds)
         loss = mse_loss(scaled_preds.flatten(), batch.y)
         gradients = autograd.grad(loss, weights, allow_unused=True)
         gradient_means = [gradient.abs().mean(dim=0) for gradient in gradients]
@@ -176,7 +176,7 @@ class Grasp(Proxy):
         batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         weights = _get_model_weights(model)
         preds = model(batch.x, batch.edge_index, batch.batch)
-        scaled_preds = dataset.label_scaler.inverse_transform(preds)
+        scaled_preds = dataset.label_scaler.to(preds.device).inverse_transform(preds)
         loss = mse_loss(scaled_preds.flatten(), batch.y)
         # [dL/dw_i for i in len(weights)]
         first_derivatives = autograd.grad(loss, weights, create_graph=True, allow_unused=True)
@@ -200,7 +200,7 @@ class Fisher(Proxy):
         # Run data through model to calculate activations
         batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         preds = model(batch.x, batch.edge_index, batch.batch)
-        scaled_preds = dataset.label_scaler.inverse_transform(preds)
+        scaled_preds = dataset.label_scaler.to(preds.device).inverse_transform(preds)
         loss = mse_loss(scaled_preds.flatten(), batch.y)
 
         # Fetch activations and gradients of the loss w.r.t to them
