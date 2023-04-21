@@ -9,9 +9,11 @@
 #SBATCH --account=su114-gpu
 #SBATCH --output "slurm-%x-%j.out"
 
-module purge
-module load CUDA/11.7.0 GCCcore/11.3.0 GCC/11.3.0 OpenMPI/4.1.4 Python/3.10.4
-source /home/h/hjk51/dev/torch_1_13_1/bin/activate
+module purge;
+module load CUDA/11.7.0 GCCcore/11.3.0 GCC/11.3.0 OpenMPI/4.1.4 Python/3.10.4;
+source /home/h/hjk51/dev/torch_1_13_1/bin/activate;
+
+export CUBLAS_WORKSPACE_CONFIG=:4096:8;
 
 date;
 
