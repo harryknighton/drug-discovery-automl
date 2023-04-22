@@ -46,11 +46,11 @@ def search_hyperparameters(
     if loss_proxy is not None:
         proxies, metrics = get_fit_data(search_space, dataset, params, experiment_dir)
         labels = metrics[LOSS_METRIC.__name__]
-        loss_proxy.fit(proxies, labels, minimise_label=not LOSS_METRIC.higher_is_better)
+        loss_proxy.fit(proxies, labels, maximise_label=LOSS_METRIC.higher_is_better)
     if explainability_proxy is not None:
         proxies, metrics = get_fit_data(search_space, dataset, params, experiment_dir)
         labels = metrics[EXPLAINABILITY_METRIC.__name__]
-        explainability_proxy.fit(proxies, labels, minimise_label=not EXPLAINABILITY_METRIC.higher_is_better)
+        explainability_proxy.fit(proxies, labels, maximise_label=EXPLAINABILITY_METRIC.higher_is_better)
 
     # Scale noise temperature to magnitude of target metric
     noise_temperature = 0.0
