@@ -90,7 +90,7 @@ def search_hyperparameters(
     rstate = np.random.default_rng(params.random_seeds[0])
 
     if start >= max_evals:
-        raise ValueError(f"max-evaluations should be greater than the number of trials performed so far ({start})")
+        AUTOML_LOGGER.warn(f"max-evaluations should be greater than the number of trials performed so far ({start})")
 
     # Run NAS and save every `DEFAULT_SAVE_TRIALS_EVERY` evaluations
     best = None
@@ -111,22 +111,22 @@ def search_hyperparameters(
 
     # Save best architecture
     if best is None:
-        return
+        best = hyperopt.base.spec_from_misc(trials.best_trial['misc'])
     best_hyperopt_architecture = hyperopt.space_eval(search_space, best)
     best_architecture = _convert_to_gnn_architecture(
         best_hyperopt_architecture,
         input_features=dataset.dataset.num_features,
         output_features=dataset.dataset.num_classes,
     )
-    if loss_proxy is not None or explainability_proxy is not None:
-        metrics = perform_run(
+    best_metrics = trials.best_trial['result']['metrics']
+    if loss_proxy is not None or explainability_proxy is not None or 'RootMeanSquaredError' not in best_metrics:
+        best_metrics = perform_run(
             dataset, best_architecture, params, experiment_dir,
             run_name='best_architecture', calculate_proxies=False
         )
     else:
-        metrics = trials.best_trial['result']['metrics']
-        save_run_results({str(best_architecture): metrics}, experiment_dir, 'best_architecture')
-    AUTOML_LOGGER.info(f"Best results: {metrics}")
+        save_run_results({str(best_architecture): best_metrics}, experiment_dir, 'best_architecture')
+    AUTOML_LOGGER.info(f"Best results: {best_metrics}")
     AUTOML_LOGGER.info(f"Best architecture: {best_architecture}")
 
 
