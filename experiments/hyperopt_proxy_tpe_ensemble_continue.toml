@@ -1,0 +1,16 @@
+type = 'nas'
+
+seeds = [1515]
+
+[search]
+algorithm = 'tpe'
+max_evaluations = 10100
+search_space = 'simple'
+loss_explainability_ratio = 1.0
+
+[data]
+label_scaler = 'standard'
+
+[training]
+max_epochs = 100
+early_stop_patience = 30
