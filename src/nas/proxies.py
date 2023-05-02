@@ -254,7 +254,7 @@ DEFAULT_PROXIES = ProxyCollection([
 
 def _get_data_samples(model: GNNModule, dataset: Dataset, num_samples: int) -> Data:
     device = next(model.parameters()).device
-    data = next(iter(DataLoader(dataset, batch_size=num_samples, shuffle=False)))
+    data = next(iter(DataLoader(dataset, batch_size=num_samples, shuffle=True)))
     return data.to(device)
 
 
