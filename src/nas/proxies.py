@@ -8,14 +8,14 @@ from scipy.stats import pearsonr
 from sklearn.linear_model import LinearRegression
 from torch import Tensor, autograd
 from torch.nn import Module
-from torch.nn.functional import mse_loss
+from torch.nn.functional import mse_loss, pdist
 from torch_geometric.data import Dataset, Data
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import global_add_pool
 
 from src.config import DEFAULT_PROXY_BATCH_SIZE
 from src.data.utils import NamedLabelledDataset
-from src.models import GNNModule
+from src.models import GNNModule, GNN
 from src.types import Metrics
 
 
@@ -166,11 +166,6 @@ class ZiCo(Proxy):
         return sum(layer_inverse_coefficients_of_variation)
 
 
-class NASI(Proxy):
-    def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
-        raise NotImplementedError()
-
-
 class Grasp(Proxy):
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         batch = _get_data_samples(model, dataset.dataset, self.num_samples)
@@ -220,6 +215,29 @@ class Fisher(Proxy):
         for layer in linear_layers:
             del layer.activation
         return sum(saliency_per_activation)
+
+# ----------------------------------------------
+# Novel Proxies
+
+
+class LatentPurityGrad(Proxy):
+    def _compute(self, model: GNN, dataset: NamedLabelledDataset) -> Tensor:
+        # Calculate impurity of the latent space
+        batch = _get_data_samples(model, dataset.dataset, self.num_samples)
+        encodings = model.encode(batch.x, batch.edge_index, batch.batch)
+        latent_distances = pdist(encodings)
+        label_distances = pdist(batch.y.reshape(-1, 1))
+        impurity = torch.mean(latent_distances * 1 / (1 + label_distances))
+
+        # Calculate proxy as gradient of impurity
+        weights = _get_model_weights(model)
+        gradients = autograd.grad(impurity, weights, allow_unused=True)
+        saliency_per_layer = [
+            (weight * gradient).abs().sum()
+            for weight, gradient in zip(weights, gradients)
+            if gradient is not None  # Ignore readout layers
+        ]
+        return sum(saliency_per_layer)
 
 
 DEFAULT_PROXIES = ProxyCollection([
