@@ -15,6 +15,7 @@ from torch_geometric.nn import global_add_pool
 
 from src.config import DEFAULT_PROXY_BATCH_SIZE
 from src.data.utils import NamedLabelledDataset
+from src.evaluation.explainability import cluster_graphs
 from src.models import GNNModule, GNN
 from src.types import Metrics
 
@@ -220,14 +221,38 @@ class Fisher(Proxy):
 # Novel Proxies
 
 
-class LatentPurityGrad(Proxy):
+class LatentSparsityGrad(Proxy):
     def _compute(self, model: GNN, dataset: NamedLabelledDataset) -> Tensor:
         # Calculate impurity of the latent space
         batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         encodings = model.encode(batch.x, batch.edge_index, batch.batch)
         latent_distances = pdist(encodings)
-        label_distances = pdist(batch.y.reshape(-1, 1))
-        impurity = torch.mean(latent_distances * 1 / (1 + label_distances))
+        sparsity = torch.mean(latent_distances)
+
+        # Calculate proxy as gradient of impurity
+        weights = _get_model_weights(model)
+        gradients = autograd.grad(sparsity, weights, allow_unused=True)
+        saliency_per_layer = [
+            (weight * gradient).abs().sum()
+            for weight, gradient in zip(weights, gradients)
+            if gradient is not None  # Ignore readout layers
+        ]
+        return sum(saliency_per_layer)
+
+
+class ConceptPurityGrad(Proxy):
+    def _compute(self, model: GNN, dataset: NamedLabelledDataset) -> Tensor:
+        # Calculate impurity of the latent space
+        batch = _get_data_samples(model, dataset.dataset, self.num_samples)
+        encodings = model.encode(batch.x, batch.edge_index, batch.batch)
+        cluster_labels = cluster_graphs(encodings)
+        latent_distances = [pdist(encodings[cluster_labels == c]) for c in cluster_labels.unique()]
+        label_distances = [pdist(batch.y[cluster_labels == c].reshape(-1, 1)) for c in cluster_labels.unique()]
+        concept_impurities = [
+            torch.mean(latent_ds / (1 + label_ds)) if len(label_ds) > 0 else 0.
+            for latent_ds, label_ds in zip(latent_distances, label_distances)
+        ]
+        impurity = sum(concept_impurities) / len(concept_impurities)
 
         # Calculate proxy as gradient of impurity
         weights = _get_model_weights(model)
@@ -249,6 +274,8 @@ DEFAULT_PROXIES = ProxyCollection([
     ZiCo(),
     Grasp(),
     Fisher(),
+    LatentSparsityGrad(),
+    ConceptPurityGrad(),
 ])
 
 
