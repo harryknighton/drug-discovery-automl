@@ -289,7 +289,7 @@ def get_fit_data(
     experiment_dir: Path,
     num_samples: int = 100,
 ) -> tuple[Metrics, Tensor]:
-    samples_filepath = experiment_dir.parent / 'sampled_results.pt'
+    samples_filepath = experiment_dir.parent / 'sampled_results_explain.pt'
     if samples_filepath.exists():
         AUTOML_LOGGER.info("Loading existing sampled results to fit proxies")
         stacked_proxies, stacked_metrics = torch.load(samples_filepath)
