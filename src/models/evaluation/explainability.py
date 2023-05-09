@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, List
 
 import torch
 from fast_pytorch_kmeans import KMeans
@@ -8,7 +8,6 @@ from torch import Tensor
 from torchmetrics import Metric, MetricCollection
 
 from src.config import AUTOML_LOGGER
-from src.models.evaluation.pytorchclustermetrics import silhouette_score
 
 
 class ConceptCompleteness(Metric):
@@ -72,3 +71,30 @@ def _validate_kmeans(best_index: int, wss_scores: Tensor, elbow_tolerance: float
         # Are we before the bend of the elbow?
         if wss_gradients[best_index - 2] * elbow_tolerance < wss_gradients[best_index - 1]:
             AUTOML_LOGGER.warn('KMeans number of clusters may be too low')
+
+
+def silhouette_score(encodings: Tensor, cluster_labels: Tensor) -> Tensor:
+    clusters_encodings = [encodings[cluster_labels == label] for label in cluster_labels.unique()]
+    intra_cluster_distances = _intra_cluster_distances(clusters_encodings)
+    inter_cluster_distances = _inter_cluster_distances(clusters_encodings)
+    max_cluster_distances = torch.max(inter_cluster_distances, intra_cluster_distances)
+    silhouette_scores = (inter_cluster_distances - intra_cluster_distances) / max_cluster_distances
+    return torch.mean(torch.nan_to_num(silhouette_scores))
+
+
+def _intra_cluster_distances(clusters_encodings: List[Tensor]) -> Tensor:
+    return torch.cat([
+        torch.cdist(cluster_encodings, cluster_encodings).sum(dim=1) / (cluster_encodings.shape[0] - 1)
+        for cluster_encodings in clusters_encodings
+    ])
+
+
+def _inter_cluster_distances(clusters_encodings: List[Tensor]) -> Tensor:
+    distances = [torch.full((encoding.size(0),), torch.inf, device=encoding.device) for encoding in clusters_encodings]
+    for i, encodings_i in zip(range(len(clusters_encodings)), clusters_encodings):
+        for j, encodings_j in zip(range(i), clusters_encodings):
+            pairwise_distances = torch.cdist(encodings_i, encodings_j)
+            distances[i] = torch.min(distances[i], pairwise_distances.mean(dim=1))
+            distances[j] = torch.min(distances[j], pairwise_distances.mean(dim=0))
+    return torch.cat(distances)
+
