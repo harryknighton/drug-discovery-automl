@@ -14,8 +14,7 @@ from torch_geometric.data import LightningDataset
 
 from src.config import AUTOML_LOGGER, DEFAULT_SAVE_TRIALS_EVERY
 from src.data.utils import NamedLabelledDataset, BasicSplit, split_dataset
-from src.models.evaluation.explainability import ConceptCompleteness
-from src.models.evaluation.metrics import RootMeanSquaredError
+from src.models.metrics import RootMeanSquaredError, ConceptCompleteness
 from src.models.gnns import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture, GNN
 from src.nas.proxies import Proxy, Ensemble

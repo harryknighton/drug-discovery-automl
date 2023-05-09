@@ -5,9 +5,50 @@ from fast_pytorch_kmeans import KMeans
 from sklearn.metrics import mean_squared_error
 from sklearn.tree import DecisionTreeRegressor
 from torch import Tensor
-from torchmetrics import Metric, MetricCollection
+from torchmetrics import PearsonCorrCoef, MeanSquaredError, Metric, MetricCollection, MeanAbsoluteError, R2Score
 
 from src.config import AUTOML_LOGGER
+from src.types import Metrics
+
+
+# -----------------------------------------------
+# Accuracy Metrics
+
+
+class PearsonCorrCoefSquared(PearsonCorrCoef):
+    """Provides an alternative implementation of R^2"""
+
+    def compute(self) -> Tensor:
+        r = super(PearsonCorrCoefSquared, self).compute()
+        return torch.pow(r, 2)
+
+
+class RootMeanSquaredError(MeanSquaredError):
+    def __init__(self):
+        super(RootMeanSquaredError, self).__init__(squared=False)
+
+
+class MaxError(Metric):
+    """Computes the maximum error of any sample"""
+    is_differentiable: bool = False
+    higher_is_better: bool = False
+    full_state_update: bool = False
+    max_error: Tensor = -1.0
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.add_state("max_error", default=torch.tensor(-1.0), dist_reduce_fx="max")
+
+    def update(self, preds: Tensor, target: Tensor) -> None:  # type: ignore
+        batch_max_error = (preds - target).abs().max()
+        self.max_error = max(self.max_error, batch_max_error)
+
+    def compute(self) -> Tensor:
+        return self.max_error
+
+
+# -----------------------------------------------
+# Explainability Metrics
 
 
 class ConceptCompleteness(Metric):
@@ -32,9 +73,6 @@ class ConceptCompleteness(Metric):
         decision_tree.fit(cluster_labels, targets)
         predictions = decision_tree.predict(cluster_labels)
         return torch.tensor(mean_squared_error(predictions, targets))
-
-
-DEFAULT_EXPLAINABILITY_METRICS = MetricCollection([ConceptCompleteness()])
 
 
 def cluster_graphs(encodings: Tensor, max_clusters: int = 10) -> Tensor:
@@ -98,3 +136,20 @@ def _inter_cluster_distances(clusters_encodings: List[Tensor]) -> Tensor:
             distances[j] = torch.min(distances[j], pairwise_distances.mean(dim=0))
     return torch.cat(distances)
 
+
+# -----------------------------------------------
+# Utilities
+
+
+DEFAULT_EXPLAINABILITY_METRICS = MetricCollection([ConceptCompleteness()])
+DEFAULT_ACCURACY_METRICS = MetricCollection([
+    MeanAbsoluteError(),
+    RootMeanSquaredError(),
+    MaxError(),
+    PearsonCorrCoefSquared(),
+    R2Score(),
+])
+
+
+def detach_metrics(metrics: Metrics) -> Metrics:
+    return {k: v.detach() for k, v in metrics.items()}

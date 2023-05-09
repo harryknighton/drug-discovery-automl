@@ -17,8 +17,7 @@ from torchmetrics import MetricCollection
 from src.config import DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR, MAX_SEED, MIN_SEED, AUTOML_LOGGER
 from src.data.scaling import Scaler
 from src.data.utils import DatasetSplit, NamedLabelledDataset, partition_dataset
-from src.models.evaluation.explainability import DEFAULT_EXPLAINABILITY_METRICS
-from src.models.evaluation.metrics import DEFAULT_METRICS, detach_metrics
+from src.models.metrics import DEFAULT_ACCURACY_METRICS, DEFAULT_EXPLAINABILITY_METRICS, detach_metrics
 from src.models.gnns import GNNArchitecture, GNN
 from src.nas.proxies import DEFAULT_PROXIES
 from src.logging import (
@@ -184,7 +183,7 @@ def train_model(
     save_checkpoints: bool = True,
     test_on_validation: bool = False,  # If test data is needed after further optimisation
 ) -> Metrics:
-    lit_model = LitGNN(model, params, DEFAULT_METRICS, DEFAULT_EXPLAINABILITY_METRICS, label_scaler)
+    lit_model = LitGNN(model, params, DEFAULT_ACCURACY_METRICS, DEFAULT_EXPLAINABILITY_METRICS, label_scaler)
 
     callbacks = []
     if params.early_stop_patience > 0:

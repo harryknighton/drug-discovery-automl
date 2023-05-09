@@ -15,7 +15,7 @@ from src.config import LOG_DIR, DEFAULT_BATCH_SIZE, DEFAULT_LR, \
 from src.data.hts import DatasetUsage
 from src.data.scaling import fit_label_scaler, Scaler, StandardScaler, MinMaxScaler
 from src.data.utils import get_dataset, NamedLabelledDataset, BasicSplit, MFPCBA, KFolds, DatasetSplit
-from src.models.evaluation.metrics import DEFAULT_METRICS
+from src.models.metrics import DEFAULT_ACCURACY_METRICS
 from src.models.gnns import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction, \
     GNNArchitecture, build_uniform_regression_layer_architecture
 from src.nas.hyperopt import search_hyperparameters, construct_search_space, get_fit_data
@@ -39,7 +39,7 @@ def main():
     label_scaler = fit_label_scaler(raw_dataset, label_scaler_type)
     if dataset_usage == DatasetUsage.DRWithSDReadouts:
         sd_ckpt_path = _resolve_sd_ckpt_path(args['sd_ckpt'], args['dataset'])
-        sd_model = LitGNN.load_from_checkpoint(sd_ckpt_path, label_scaler=label_scaler, metrics=DEFAULT_METRICS)
+        sd_model = LitGNN.load_from_checkpoint(sd_ckpt_path, label_scaler=label_scaler, metrics=DEFAULT_ACCURACY_METRICS)
         raw_dataset.augment_dataset_with_sd_readouts(sd_model)
     dataset = NamedLabelledDataset(name=args['dataset'], dataset=raw_dataset, label_scaler=label_scaler)
 
