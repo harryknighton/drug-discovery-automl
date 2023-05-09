@@ -1,3 +1,20 @@
+"""Load and process high-throughput screening datasets.
+
+Note: Raw data must be generated using https://github.com/davidbuterez/mf-pcba and placed in the datasets directory
+prior to using this code to load the dataset.
+
+References:
+    David Buterez, Jon Paul Janet, Steven J. Kiddle, and Pietro Liò
+    Journal of Chemical Information and Modeling 2023 63 (9), 2667-2678
+    DOI: 10.1021/acs.jcim.2c01569
+
+Copyright (c) 2023, Harry Knighton
+All rights reserved.
+
+This source code is licensed under the BSD-style license found in the
+LICENSE file in the root directory of this source tree.
+"""
+
 from enum import auto, Enum
 from pathlib import Path
 from typing import List, Any

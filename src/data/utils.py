@@ -1,3 +1,12 @@
+"""Supply utility functions to load, handle and split datasets.
+
+Copyright (c) 2023, Harry Knighton
+All rights reserved.
+
+This source code is licensed under the BSD-style license found in the
+LICENSE file in the root directory of this source tree.
+"""
+
 from abc import ABC
 from dataclasses import dataclass
 from typing import List, Any, Optional

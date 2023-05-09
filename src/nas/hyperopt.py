@@ -1,3 +1,16 @@
+"""Implement Network Architecture Search using the HyperOpt library.
+
+References:
+    Bergstra, James, et al. "Hyperopt: a python library for model selection and hyperparameter optimization."
+    Computational Science & Discovery 8.1 (2015): 014008.
+
+Copyright (c) 2023, Harry Knighton
+All rights reserved.
+
+This source code is licensed under the BSD-style license found in the
+LICENSE file in the root directory of this source tree.
+"""
+
 import gc
 import pickle
 import random

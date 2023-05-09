@@ -1,3 +1,12 @@
+"""Provide utilities to analyse and log results from the pipeline.
+
+Copyright (c) 2023, Harry Knighton
+All rights reserved.
+
+This source code is licensed under the BSD-style license found in the
+LICENSE file in the root directory of this source tree.
+"""
+
 import json
 from collections import defaultdict
 from datetime import datetime
