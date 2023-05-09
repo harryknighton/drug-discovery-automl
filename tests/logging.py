@@ -1,7 +1,7 @@
 import pytest
 from torch import tensor
 
-from src.evaluation.metrics import analyse_results_distribution
+from src.logging import analyse_results_distribution
 
 
 def test_analyse_distribution_of_empty_results_raises_error():

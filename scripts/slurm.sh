@@ -17,6 +17,6 @@ export CUBLAS_WORKSPACE_CONFIG=:4096:8;
 
 date;
 
-CUDA_VISIBLE_DEVICES=0 python -m src.scripts.run_experiment --experiment-name "$1" --dataset "$2" --dataset-usage "$3" --num-workers 32;
+CUDA_VISIBLE_DEVICES=0 python -m scripts.run_experiment --experiment-name "$1" --dataset "$2" --dataset-usage "$3" --num-workers 32;
 
 date;

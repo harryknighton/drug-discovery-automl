@@ -4,3 +4,4 @@ datasets/
 **/lightning_logs/
 logs/
 **/__pycache__
+reports

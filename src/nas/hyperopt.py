@@ -14,13 +14,13 @@ from torch_geometric.data import LightningDataset
 
 from src.config import AUTOML_LOGGER, DEFAULT_SAVE_TRIALS_EVERY
 from src.data.utils import NamedLabelledDataset, BasicSplit, split_dataset
-from src.evaluation.explainability import ConceptCompleteness
-from src.evaluation.metrics import RootMeanSquaredError
-from src.models import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
+from src.models.evaluation.explainability import ConceptCompleteness
+from src.models.evaluation.metrics import RootMeanSquaredError
+from src.models.gnns import PoolingFunction, GNNLayerType, ActivationFunction, GNNArchitecture, \
     build_uniform_regression_layer_architecture, GNN
 from src.nas.proxies import Proxy, Ensemble
-from src.evaluation.reporting import save_run_results
-from src.training import train_model, HyperParameters, perform_run
+from src.logging import save_run_results
+from src.models.training import train_model, HyperParameters, perform_run
 from src.types import Metrics
 
 

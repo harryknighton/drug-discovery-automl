@@ -15,13 +15,13 @@ from src.config import LOG_DIR, DEFAULT_BATCH_SIZE, DEFAULT_LR, \
 from src.data.hts import DatasetUsage
 from src.data.scaling import fit_label_scaler, Scaler, StandardScaler, MinMaxScaler
 from src.data.utils import get_dataset, NamedLabelledDataset, BasicSplit, MFPCBA, KFolds, DatasetSplit
-from src.evaluation.metrics import DEFAULT_METRICS
-from src.models import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction, \
+from src.models.evaluation.metrics import DEFAULT_METRICS
+from src.models.gnns import build_uniform_gnn_architecture, GNNLayerType, PoolingFunction, ActivationFunction, \
     GNNArchitecture, build_uniform_regression_layer_architecture
 from src.nas.hyperopt import search_hyperparameters, construct_search_space, get_fit_data
 from src.nas.proxies import Proxy, DEFAULT_PROXIES, Ensemble
-from src.evaluation.reporting import generate_experiment_dir
-from src.training import run_experiment, LitGNN, HyperParameters, perform_run
+from src.logging import generate_experiment_dir
+from src.models.training import run_experiment, LitGNN, HyperParameters, perform_run
 
 
 def main():

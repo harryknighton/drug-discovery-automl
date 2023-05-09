@@ -1,6 +1,6 @@
 import pytest
 
-from src.models import ActivationFunction, ModelArchitecture, GNNLayerType
+from src.models.gnns import ActivationFunction, ModelArchitecture, GNNLayerType
 
 
 def test_invalid_model_architecture_raises_error():

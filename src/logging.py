@@ -3,9 +3,10 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
-from src.config import AUTOML_LOGGER, LOG_DIR
+from src.config import LOG_DIR, AUTOML_LOGGER
 from src.data.hts import HTSDataset
 from src.data.utils import NamedLabelledDataset
 from src.types import Metrics
@@ -49,3 +50,27 @@ def read_json_file(parent_dir: Path, filename: str) -> None:
     filepath = parent_dir / filename
     with open(filepath, 'rb') as file:
         return json.load(file)
+
+
+def analyse_results_distribution(results: dict[str | int, Metrics]) -> dict[str, Metrics]:
+    """Calculate the distribution of results over all random seeds and data splits for a run"""
+    assert len(results) > 0
+    run_metrics = list(results.values())
+    stacked_metrics = {
+        metric: np.array([float(metrics[metric]) for metrics in run_metrics])
+        for metric in run_metrics[0]
+    }
+    metrics = {}
+    for metric, values in stacked_metrics.items():
+        percentiles = np.percentile(values, [0, 25, 50, 75, 100])
+        variance = np.var(values, ddof=1) if len(values) > 1 else 0.0
+        metrics[metric] = {
+            'mean': np.mean(values),
+            'variance': variance,
+            'min': percentiles[0],
+            'p25': percentiles[1],
+            'median': percentiles[2],
+            'p75': percentiles[3],
+            'max': percentiles[4]
+        }
+    return metrics

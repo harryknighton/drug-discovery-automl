@@ -15,8 +15,8 @@ from torch_geometric.nn import global_add_pool
 
 from src.config import DEFAULT_PROXY_BATCH_SIZE
 from src.data.utils import NamedLabelledDataset
-from src.evaluation.explainability import cluster_graphs
-from src.models import GNNModule, GNN
+from src.models.evaluation.explainability import cluster_graphs
+from src.models.gnns import GNNModule, GNN
 from src.types import Metrics
 
 

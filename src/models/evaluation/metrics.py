@@ -1,6 +1,5 @@
 from typing import Any
 
-import numpy as np
 import torch
 from torch import Tensor
 from torchmetrics import PearsonCorrCoef, MeanSquaredError, Metric, MetricCollection, MeanAbsoluteError, R2Score
@@ -47,30 +46,6 @@ DEFAULT_METRICS = MetricCollection([
     PearsonCorrCoefSquared(),
     R2Score(),
 ])
-
-
-def analyse_results_distribution(results: dict[str | int, Metrics]) -> dict[str, Metrics]:
-    """Calculate the distribution of results over all random seeds and data splits for a run"""
-    assert len(results) > 0
-    run_metrics = list(results.values())
-    stacked_metrics = {
-        metric: np.array([float(metrics[metric]) for metrics in run_metrics])
-        for metric in run_metrics[0]
-    }
-    metrics = {}
-    for metric, values in stacked_metrics.items():
-        percentiles = np.percentile(values, [0, 25, 50, 75, 100])
-        variance = np.var(values, ddof=1) if len(values) > 1 else 0.0
-        metrics[metric] = {
-            'mean': np.mean(values),
-            'variance': variance,
-            'min': percentiles[0],
-            'p25': percentiles[1],
-            'median': percentiles[2],
-            'p75': percentiles[3],
-            'max': percentiles[4]
-        }
-    return metrics
 
 
 def detach_metrics(metrics: Metrics) -> Metrics:

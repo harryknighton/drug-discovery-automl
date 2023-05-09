@@ -14,14 +14,16 @@ from torch_geometric.data import LightningDataset
 from torch_geometric.data.lightning_datamodule import LightningDataModule
 from torchmetrics import MetricCollection
 
-from src.config import AUTOML_LOGGER, DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR, MAX_SEED, MIN_SEED
+from src.config import DEFAULT_LR_PLATEAU_PATIENCE, DEFAULT_LR_PLATEAU_FACTOR, MAX_SEED, MIN_SEED, AUTOML_LOGGER
 from src.data.scaling import Scaler
 from src.data.utils import DatasetSplit, NamedLabelledDataset, partition_dataset
-from src.evaluation.explainability import DEFAULT_EXPLAINABILITY_METRICS
-from src.evaluation.metrics import DEFAULT_METRICS, analyse_results_distribution, detach_metrics
-from src.models import GNNArchitecture, GNN
+from src.models.evaluation.explainability import DEFAULT_EXPLAINABILITY_METRICS
+from src.models.evaluation.metrics import DEFAULT_METRICS, detach_metrics
+from src.models.gnns import GNNArchitecture, GNN
 from src.nas.proxies import DEFAULT_PROXIES
-from src.evaluation.reporting import generate_run_name, save_experiment_results, save_run_results
+from src.logging import (
+    generate_run_name, save_experiment_results, save_run_results, analyse_results_distribution
+)
 from src.types import Metrics
 
 
