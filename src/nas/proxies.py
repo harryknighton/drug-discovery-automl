@@ -258,7 +258,7 @@ class ConceptPurityGrad(Proxy):
         weights = _get_model_weights(model)
         gradients = autograd.grad(impurity, weights, allow_unused=True)
         saliency_per_layer = [
-            (weight * gradient).abs().sum()
+            - (weight * gradient).sum()
             for weight, gradient in zip(weights, gradients)
             if gradient is not None  # Ignore readout layers
         ]
