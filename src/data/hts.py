@@ -31,6 +31,7 @@ _N_FEATURES = _MAX_ATOMIC_NUM + 33
 
 
 class DatasetUsage(Enum):
+    """Define ways in which the Dose Response (DR) and Single Dose (SD) data modalities can be used."""
     SDOnly = auto()
     DROnly = auto()
     DRWithSDLabels = auto()
@@ -38,6 +39,7 @@ class DatasetUsage(Enum):
 
 
 def requires_sd_data(usage: DatasetUsage) -> bool:
+    """Define which data usages require the Single Dose (SD) data to be loaded"""
     return (
         usage == DatasetUsage.SDOnly or
         usage == DatasetUsage.DRWithSDLabels
@@ -45,6 +47,7 @@ def requires_sd_data(usage: DatasetUsage) -> bool:
 
 
 def requires_dr_data(usage: DatasetUsage) -> bool:
+    """Define which data usages require the Dose Response (DR) data to be loaded"""
     return (
         usage == DatasetUsage.DROnly or
         usage == DatasetUsage.DRWithSDLabels or
@@ -53,6 +56,11 @@ def requires_dr_data(usage: DatasetUsage) -> bool:
 
 
 class HTSDataset(InMemoryDataset):
+    """Load an MF-PCBA bioassay dataset and process it into a form suitable for machine learning.
+
+    Note: Raw data must be generated using https://github.com/davidbuterez/mf-pcba and placed in the datasets directory
+    prior to using this code to load the dataset.
+    """
     def __init__(self, root: Path, dataset_usage: DatasetUsage, *args: Any, **kwargs: Any):
         self.dataset_usage = dataset_usage
         self.label_column = _get_label_column(dataset_usage)
@@ -64,10 +72,11 @@ class HTSDataset(InMemoryDataset):
 
     @property
     def num_classes(self) -> int:
-        return 1
+        return 1  # Always only one regression target
 
     @property
     def raw_file_names(self):
+        """Define filenames of raw data files."""
         if requires_dr_data(self.dataset_usage) and (Path(self.raw_dir) / 'DR.csv').exists():
             return ['DR.csv']  # DR data from separate file
         else:
@@ -75,6 +84,10 @@ class HTSDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
+        """Define files in which processed data is saved.
+
+        Note: A file is created per dataset usage to speed-up loading.
+        """
         name = ''
         if requires_dr_data(self.dataset_usage):
             name += 'dr'
@@ -85,9 +98,11 @@ class HTSDataset(InMemoryDataset):
         return [f'processed_{name}_data.pt']
 
     def download(self):
+        """Data must be present locally and will not be downloaded."""
         pass
 
     def process(self):
+        """Load the raw data file and process it into a tensor representation."""
         AUTOML_LOGGER.debug(f"Processing dataset at {self.root}")
         df = _read_data(Path(self.raw_paths[0]))
         if requires_sd_data(self.dataset_usage):
@@ -103,7 +118,7 @@ class HTSDataset(InMemoryDataset):
         torch.save((data, slices), self.processed_paths[0])
 
     def augment_dataset_with_sd_readouts(self, model: torch.nn.Module):
-        """Predict SD labels using `model` and add them to the dataset
+        """When using DatasetUsage.DRWithSDReadouts, predict SD labels using `model` and add them to the dataset.
 
         WARNING: This must be called before the dataset is accessed externally as when `self.get()` is called
             the current `self.data.x` is cached in `self._data_list`

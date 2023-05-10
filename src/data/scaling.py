@@ -16,16 +16,24 @@ from torch_geometric.data import Dataset
 
 
 class Scaler(torch.nn.Module, ABC):
+    """A generic feature scaler using the Sci-kit Learn interface."""
     def fit(self, values: Tensor) -> Tensor:
+        """Fit the scaler's parameters using the provided values."""
         raise NotImplementedError()
 
     def transform(self, values: Tensor) -> Tensor:
+        """Scale `values`.
+
+        Warning: scaler.fit() must have been called first.
+        """
         raise NotImplementedError()
 
     def inverse_transform(self, values: Tensor) -> Tensor:
+        """Return the inversely scaled `values` such that scaler.inverse_transform(scaler.transform(v)) = v."""
         raise NotImplementedError()
 
     def fit_transform(self, values: Tensor) -> Tensor:
+        """Fit the scaler on `values` and return the scaled values."""
         self.fit(values)
         return self.transform(values)
 
@@ -36,6 +44,7 @@ class Scaler(torch.nn.Module, ABC):
 
 
 class StandardScaler(Scaler):
+    """Scale features to the standard normal distribution"""
     def __init__(self, epsilon: float = 1e-7):
         """Adapted from https://gist.github.com/farahmand-m/8a416f33a27d73a149f92ce4708beb40"""
         super().__init__()
@@ -61,6 +70,7 @@ class StandardScaler(Scaler):
 
 
 class MinMaxScaler(Scaler):
+    """Scale features to the range [`scaled_min`, `scaled_max`]."""
     def __init__(self, scaled_min: int = 0, scaled_max: int = 1, epsilon: float = 1e-7):
         super().__init__()
         self.register_buffer('scaled_min', torch.tensor([scaled_min]), persistent=False)
@@ -89,6 +99,7 @@ class MinMaxScaler(Scaler):
 
 
 def fit_label_scaler(dataset: Dataset, scaler_type: Type[Scaler]) -> Scaler:
+    """Create a label scaler of `scaler_type` and fit it to `dataset`."""
     scaler = scaler_type()
     scaler.fit(dataset.data.y.reshape(-1, 1))
     return scaler

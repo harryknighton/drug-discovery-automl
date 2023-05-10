@@ -23,6 +23,7 @@ from src.data.scaling import Scaler
 
 
 class NamedLabelledDataset:
+    """Wrap a dataset object with a name and a scaler to scale the dataset labels."""
     def __init__(self, name: str, dataset: Dataset, label_scaler: Scaler):
         self.name = name
         self.dataset = dataset
@@ -34,27 +35,32 @@ class NamedLabelledDataset:
 
 
 class DatasetSplit(ABC):
+    """Base class to define methods of splitting datasets./"""
     pass
 
 
 @dataclass(frozen=True)
 class KFolds(DatasetSplit):
+    """Split a dataset into `k` training and validation folds with `test_split` left out"""
     k: int
-    test_split: float
+    test_split: float  # Proportion of data to use in training
 
 
 @dataclass(frozen=True)
 class MFPCBA(DatasetSplit):
+    """Use the data splitting methodology used in MF-PCBA"""
     seeds: List[int]
 
 
 @dataclass(frozen=True)
 class BasicSplit(DatasetSplit):
+    """Split a dataset into training, validation and testing datasets"""
     test_split: float
     train_val_split: float
 
 
 def get_dataset(dataset_name: str, **kwargs: Any) -> Dataset:
+    """Get the dataset called `dataset_name`."""
     root = DATASETS_DIR / dataset_name
     if dataset_name.startswith('AID'):
         if 'dataset_usage' not in kwargs:
@@ -69,6 +75,7 @@ def get_dataset(dataset_name: str, **kwargs: Any) -> Dataset:
 
 
 def partition_dataset(dataset: NamedLabelledDataset, dataset_split: DatasetSplit, random_seed: Optional[int] = 0):
+    """Split `dataset` using the methodology specified by `dataset_split`."""
     if isinstance(dataset_split, MFPCBA):
         for seed in MF_PCBA_SEEDS[dataset.name]:
             yield seed, mf_pcba_split(dataset.dataset, seed)
@@ -87,6 +94,7 @@ def partition_dataset(dataset: NamedLabelledDataset, dataset_split: DatasetSplit
 
 
 def mf_pcba_split(dataset: Dataset, seed: int):
+    """Implement MF-PCBA splitting method."""
     # Splits used in https://github.com/davidbuterez/mf-pcba/blob/main/split_DR_with_random_seeds.ipynb
     # Adapted from https://stackoverflow.com/questions/38250710/how-to-split-data-into-3-sets-train-validation-and-test
     np.random.seed(seed)
@@ -101,6 +109,7 @@ def mf_pcba_split(dataset: Dataset, seed: int):
 
 
 def split_dataset(dataset: Dataset, ratio: float):
+    """Implement `BasicSplit` splitting method."""
     split = int(ratio * len(dataset))
     indices = np.random.permutation(np.arange(len(dataset), dtype=np.int64))
     training_dataset = dataset.index_select(indices[:split])
@@ -109,6 +118,7 @@ def split_dataset(dataset: Dataset, ratio: float):
 
 
 def k_folds(dataset: Dataset, k: int):
+    """Implement `KFold` splitting method."""
     kfold = model_selection.KFold(n_splits=k)
     for train_index, val_index in kfold.split(dataset):
         train_dataset = dataset.index_select(train_index.tolist())

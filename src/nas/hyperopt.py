@@ -53,7 +53,22 @@ def search_hyperparameters(
     loss_proxy: Optional[Proxy] = None,
     explainability_proxy: Optional[Proxy] = None,
     noise_decay: Optional[float] = None,
-):
+) -> None:
+    """Perform Network Architecture Search.,
+
+    Args:
+        experiment_dir: Directory to save results to.
+        dataset: Dataset to train models on.
+        params: Hyperparameters that define how models are trained.
+        search_space: The space of architectures to search.
+        algorithm: The HyperOpt search algorithm to suggest the next architecture to evaluate.
+        max_evals: The maximum number of search iterations to perform.
+        loss_explainability_ratio: The ratio of loss and explainability to optimise for.
+        minimise_explainability: Whether to minimise or maximise explainability.
+        loss_proxy: Optional[Proxy] = The proxy used to estimate the loss value for a model.
+        explainability_proxy: The proxy used to estimate the explainability value for a model.
+        noise_decay: Whether and how fast the regularising noise term should decay during the search.
+    """
     # Fit proxies to target metrics
     if loss_proxy is not None:
         proxies, metrics = get_fit_data(search_space, dataset, params, experiment_dir)
@@ -143,6 +158,7 @@ def search_hyperparameters(
 
 
 def construct_search_space(name: str):
+    """Construct the search space with name `name`."""
     if name == 'simple':
         return {
             'pool_func': hp.choice('pool_func', PoolingFunction),
@@ -157,6 +173,8 @@ def construct_search_space(name: str):
                 for i in range(1, 4)
             ]),
         }
+    else:
+        raise NotImplementedError()
 
 
 def _prepare_objective(
@@ -170,6 +188,7 @@ def _prepare_objective(
     loss_proxy: Optional[Proxy] = None,
     explainability_proxy: Optional[Proxy] = None
 ) -> Callable[[Any], Dict[str, Any]]:
+    """Create the objective function to evaluate a model for network architecture search."""
     tl.seed_everything(params.random_seeds[0], workers=True)
     assert isinstance(params.dataset_split, BasicSplit)
 
@@ -180,7 +199,7 @@ def _prepare_objective(
         batch_size=params.batch_size, num_workers=params.num_workers,
         pin_memory=not train_dataset.data.is_cuda
     )
-    noise_generator = random.Random(params.random_seeds[0])
+    noise_generator = random.Random(params.random_seeds[0])  # Used to generate random regularisation terms.
 
     def objective(x):
         architecture = _convert_to_gnn_architecture(x, dataset.dataset.num_features, dataset.dataset.num_classes)
@@ -188,14 +207,15 @@ def _prepare_objective(
         AUTOML_LOGGER.debug("Evaluating architecture " + str(architecture))
         metrics = {}
         status = STATUS_OK
-        if loss_proxy is not None:
+
+        if loss_proxy is not None:  # Approximate model loss
             metrics['loss_proxy'] = loss_proxy(model, dataset).item()
-        if explainability_proxy is not None:
+        if explainability_proxy is not None:  # Approximate model explainability
             metrics['explainability_proxy'] = explainability_proxy(model, dataset).item()
         if (
             loss_proxy is None and loss_explainability_ratio > 0. or
             explainability_proxy is None and loss_explainability_ratio < 1.
-        ):
+        ):  # Calculate test loss and explainability
             try:
                 gpu_metrics = train_model(
                     model=model,
@@ -214,6 +234,7 @@ def _prepare_objective(
 
         result = _calculate_result(metrics, status)
 
+        # Add regularising noise term to encourage exploration over exploitation
         if objective.noise_temperature > 1e-5 and 'loss' in result:
             noise = noise_generator.random()
             result['loss'] += noise * objective.noise_temperature
@@ -223,6 +244,7 @@ def _prepare_objective(
         return result
 
     def _calculate_result(metrics: dict, status: str) -> dict:
+        """Calculate the HyperOpt result to return."""
         result = {'status': status}
         if not metrics:
             return result
@@ -233,19 +255,22 @@ def _prepare_objective(
         return result
 
     def _calculate_loss(target: str, metrics: dict) -> float:
+        """Calculate the accuracy or explainability loss using the true model performance or proxy approximations."""
+        # Choose which proxy value to use depending on what is being optimised for
         match target:
             case 'loss': proxy = loss_proxy
             case 'explainability': proxy = explainability_proxy
             case _: raise ValueError("Unknown loss target")
+
         if proxy is not None:
             loss = metrics[target + '_proxy']
             if proxy.higher_is_better:
                 loss *= -1
-        elif target == 'loss' and loss_explainability_ratio > 0.0:
+        elif target == 'loss' and loss_explainability_ratio > 0.0:  # Calculate accuracy loss if needed
             loss = metrics[LOSS_METRIC.__name__]
             if LOSS_METRIC.higher_is_better:
                 loss *= -1
-        elif target == 'explainability' and loss_explainability_ratio < 1.0:
+        elif target == 'explainability' and loss_explainability_ratio < 1.0:  # Calculate explainability loss if needed.
             loss = metrics[EXPLAINABILITY_METRIC.__name__]
             if EXPLAINABILITY_METRIC.higher_is_better:
                 loss *= -1
@@ -256,12 +281,13 @@ def _prepare_objective(
         return loss
 
     objective.version = 0
-    objective.noise_temperature = noise_temperature
+    objective.noise_temperature = noise_temperature  # Allow temperature to be updated through the search
 
     return objective
 
 
 def _convert_to_gnn_architecture(space: dict, input_features: int, output_features: int) -> GNNArchitecture:
+    """Convert a point in the search space to the corresponding GNNArchitecture."""
     layers = space['layers']
     regression_architecture = build_uniform_regression_layer_architecture(
         input_features=int(layers['hidden_features']),
@@ -301,6 +327,7 @@ def get_fit_data(
     experiment_dir: Path,
     num_samples: int = 100,
 ) -> tuple[Metrics, Tensor]:
+    """Sample many models to fit proxies to a dataset."""
     samples_filepath = experiment_dir.parent / 'sampled_results_explain.pt'
     if samples_filepath.exists():
         AUTOML_LOGGER.info("Loading existing sampled results to fit proxies")
@@ -309,7 +336,7 @@ def get_fit_data(
         AUTOML_LOGGER.info("No sample results file found so sampling models")
         torch.set_float32_matmul_precision('medium')
         samples_filepath.parent.mkdir(parents=True, exist_ok=True)
-        proxies, metrics = sample_proxies_metrics(search_space, num_samples, dataset, params)
+        proxies, metrics = _sample_proxies_metrics(search_space, num_samples, dataset, params)
         stacked_proxies = {proxy: torch.stack([sample[proxy] for sample in proxies]) for proxy in proxies[0]}
         stacked_metrics = {metric: torch.stack([sample[metric] for sample in metrics]) for metric in metrics[0]}
         torch.save((stacked_proxies, stacked_metrics), samples_filepath)
@@ -317,7 +344,7 @@ def get_fit_data(
     return stacked_proxies, stacked_metrics
 
 
-def sample_proxies_metrics(
+def _sample_proxies_metrics(
     search_space: dict, num_samples: int, dataset: NamedLabelledDataset, params: HyperParameters,
 ) -> tuple[list[Metrics], list[Metrics]]:
     proxies = []

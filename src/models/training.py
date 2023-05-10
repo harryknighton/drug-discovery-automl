@@ -37,6 +37,7 @@ from src.types import Metrics
 
 @dataclass
 class HyperParameters:
+    """Define hyperparameters needed to train a model."""
     random_seeds: List[int]
     dataset_split: DatasetSplit
     label_scaler: Type[Scaler]
@@ -50,6 +51,7 @@ class HyperParameters:
 
 
 class LitGNN(tl.LightningModule):
+    """Define training and testing loop for a GNN model."""
     def __init__(
         self,
         model: GNN,
@@ -145,7 +147,7 @@ def perform_run(
     run_name: Optional[str] = None,
     calculate_proxies: bool = True,
 ) -> Tuple[dict[str, Metrics], dict[str, Metrics]]:
-    """Perform multiple runs using k-fold cross validation and return the average results"""
+    """Perform multiple tests of an architecture across different data splits and random seeds."""
     save_logs = experiment_dir is not None
     if save_logs:
         run_dir = experiment_dir / (run_name if run_name is not None else generate_run_name())
@@ -192,6 +194,21 @@ def train_model(
     save_checkpoints: bool = True,
     test_on_validation: bool = False,  # If test data is needed after further optimisation
 ) -> Metrics:
+    """Train a model and return the testing metrics.
+
+    Args:
+        model: The model to train.
+        params: The hyperparameters that define how the model is trained.
+        datamodule: The data to train, validate and test the model on.
+        label_scaler: The label scaler fit to the dataset.
+        run_dir: The directory to save training logs to.
+        version: The name of the fold in run_dir to save logs to.
+        save_logs: Whether to save training logs.
+        save_checkpoints: Whether to save the final model checkpoint.
+        test_on_validation: Should testing dataloader or validation dataloader be used to report result.
+    Returns:
+        Metrics: The final performance of the model on the validation/testing dataset.
+    """
     lit_model = LitGNN(model, params, DEFAULT_ACCURACY_METRICS, DEFAULT_EXPLAINABILITY_METRICS, label_scaler)
 
     callbacks = []

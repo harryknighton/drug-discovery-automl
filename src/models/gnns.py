@@ -43,6 +43,7 @@ class ActivationFunction(Enum):
 
 
 class PoolingFunction(Enum):
+    # partial(f) needed to avoid f becoming member function
     MEAN = partial(global_mean_pool)
     MAX = partial(global_max_pool)
     ADD = partial(global_add_pool)
@@ -50,6 +51,7 @@ class PoolingFunction(Enum):
 
 @dataclass
 class ModelArchitecture(ABC):
+    """Define a generic model architecture."""
     layer_types: List[LayerType]
     features: List[int]
     activation_funcs: List[Optional[ActivationFunction]]
@@ -81,6 +83,7 @@ class ModelArchitecture(ABC):
 
 @dataclass
 class RegressionArchitecture(ModelArchitecture):
+    """Define a conventional neural network architecture."""
     layer_types: List[RegressionLayerType]
 
     def __str__(self):
@@ -89,6 +92,7 @@ class RegressionArchitecture(ModelArchitecture):
 
 @dataclass
 class GNNArchitecture(ModelArchitecture):
+    """Define a GNN architecture."""
     layer_types: List[GNNLayerType]
     pool_func: PoolingFunction
     regression_layer: RegressionArchitecture
@@ -104,11 +108,13 @@ class GNNArchitecture(ModelArchitecture):
 
 
 class GNNModule(torch.nn.Module, ABC):
+    """Base class for all GNN implementations using `torch.nn.Module`"""
     def forward(self, x: Tensor, edge_index: Tensor, batch: Tensor):
         pass
 
 
 class GraphBlock(GNNModule):
+    """A single graph block layer in a GNN."""
     def __init__(
         self,
         layer_type: GNNLayerType,
@@ -136,6 +142,7 @@ class GraphBlock(GNNModule):
 
 
 class RegressionLayer(torch.nn.Module):
+    """Construct the model represented by a RegressionArchitecture."""
     def __init__(self, architecture: RegressionArchitecture):
         super(RegressionLayer, self).__init__()
         self.layers = ModuleList()
@@ -158,6 +165,7 @@ class RegressionLayer(torch.nn.Module):
 
 
 class GNN(GNNModule):
+    """Construct the model represented by a GNNArchitecture."""
     def __init__(self, architecture: GNNArchitecture):
         super(GNN, self).__init__()
         num_layers = len(architecture.layer_types)
@@ -209,6 +217,7 @@ def build_uniform_gnn_architecture(
     num_regression_layers: int,
     regression_layer_features: int,
 ) -> GNNArchitecture:
+    """Construct a GNN architecture with the same number of neurons in each layer."""
     regression_architecture = build_uniform_regression_layer_architecture(
         input_features=hidden_features,
         hidden_features=regression_layer_features,
@@ -233,6 +242,7 @@ def build_uniform_regression_layer_architecture(
     num_layers: int = 3,
     batch_normalise: bool = True
 ) -> RegressionArchitecture:
+    """Construct a conventional neural network architecture with the same number of neurons in each layer."""
     return RegressionArchitecture(
         layer_types=[RegressionLayerType.Linear] * num_layers,
         features=[input_features] + [hidden_features] * (max(num_layers - 1, 0)) + [output_features],
@@ -242,6 +252,11 @@ def build_uniform_regression_layer_architecture(
 
 
 def string_to_architecture(str_architecture: str) -> GNNArchitecture:
+    """Construct a GNN architecture from its string representation
+
+    Note: This was primarily used to reconstruct models from a previous experiment for which the checkpoint
+    had been lost.
+    """
     arch = str_architecture.replace(']Batch', '], Batch')  # For compatibility with an old buggy version
     arch = arch.replace(': ', '=')
     arch = arch.replace('Layers', 'layer_types')

@@ -25,7 +25,7 @@ from src.types import Metrics
 
 
 class PearsonCorrCoefSquared(PearsonCorrCoef):
-    """Provides an alternative implementation of R^2"""
+    """Implement R^2 as used in MF-Modelling (https://doi.org/10.26434/chemrxiv-2022-dsbm5)"""
 
     def compute(self) -> Tensor:
         r = super(PearsonCorrCoefSquared, self).compute()
@@ -85,6 +85,16 @@ class ConceptCompleteness(Metric):
 
 
 def cluster_graphs(encodings: Tensor, max_clusters: int = 10) -> Tensor:
+    """Perform k-means clustering on `encodings` by automatically selecting k using the Silhouette score and validate
+    the choice using the elbow method.
+
+    Args:
+        encodings: The graph representations to cluster.
+        max_clusters: The maximum value of k to use for k-means clustering.
+
+    Returns:
+        Tensor: The cluster labels assigned to each input graph.
+    """
     cluster_labels = []
     silhouette_scores = []
     wss_scores = []
@@ -121,6 +131,18 @@ def _validate_kmeans(best_index: int, wss_scores: Tensor, elbow_tolerance: float
 
 
 def silhouette_score(encodings: Tensor, cluster_labels: Tensor) -> Tensor:
+    """Calculate the Silhouette Score value.
+
+    Args:
+        encodings: A tensor of shape [N, D] containing N graph representations of dimension D.
+        cluster_labels: A tensor of shape [N} containing labels assigning each graph to a cluster
+    Returns:
+        Tensor: The Silhouette score for the clustering defined by `cluster_labels`.
+
+    References:
+        This code is adapted from the NumPy implementation given in
+        https://scikit-learn.org/stable/modules/generated/sklearn.metrics.silhouette_score.html
+    """
     clusters_encodings = [encodings[cluster_labels == label] for label in cluster_labels.unique()]
     intra_cluster_distances = _intra_cluster_distances(clusters_encodings)
     inter_cluster_distances = _inter_cluster_distances(clusters_encodings)
@@ -130,6 +152,13 @@ def silhouette_score(encodings: Tensor, cluster_labels: Tensor) -> Tensor:
 
 
 def _intra_cluster_distances(clusters_encodings: List[Tensor]) -> Tensor:
+    """Calculate the average distance from each point in a cluster to all points in the same cluster.
+
+    Args:
+        clusters_encodings: A list containing graph representations for each cluster.
+    Returns:
+        Tensor: i^th value contains the average distance from point i to all points in the same cluster as point i.
+    """
     return torch.cat([
         torch.cdist(cluster_encodings, cluster_encodings).sum(dim=1) / (cluster_encodings.shape[0] - 1)
         for cluster_encodings in clusters_encodings
@@ -137,6 +166,13 @@ def _intra_cluster_distances(clusters_encodings: List[Tensor]) -> Tensor:
 
 
 def _inter_cluster_distances(clusters_encodings: List[Tensor]) -> Tensor:
+    """Calculate the minimum average distance from each point to another cluster.
+
+    Args:
+        clusters_encodings: A list containing graph representations for each cluster.
+    Returns:
+        Tensor: i^th value contains the average distance from point i to the closest cluster to point i.
+    """
     distances = [torch.full((encoding.size(0),), torch.inf, device=encoding.device) for encoding in clusters_encodings]
     for i, encodings_i in zip(range(len(clusters_encodings)), clusters_encodings):
         for j, encodings_j in zip(range(i), clusters_encodings):

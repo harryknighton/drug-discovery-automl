@@ -1,3 +1,12 @@
+"""Run experiments.
+
+Copyright (c) 2023, Harry Knighton
+All rights reserved.
+
+This source code is licensed under the BSD-style license found in the
+LICENSE file in the root directory of this source tree.
+"""
+
 import argparse
 import copy
 import logging
@@ -33,6 +42,7 @@ def main():
     args = vars(parser.parse_args())
     config = _load_config(args['experiment_name'])
 
+    # Load objects needed for all experiments
     dataset_usage = _resolve_dataset_usage(args)
     raw_dataset = get_dataset(args['dataset'], dataset_usage=dataset_usage)
     label_scaler_type = _resolve_label_scaler(config)
@@ -46,6 +56,7 @@ def main():
     experiment_dir = generate_experiment_dir(dataset, args['experiment_name'])
     experiment_type = config['type']
 
+    # Do not repeat experiments as they reproduce the same results
     if experiment_type != 'nas' and experiment_dir.exists():
         AUTOML_LOGGER.error("Experiment logs already exist")
         return

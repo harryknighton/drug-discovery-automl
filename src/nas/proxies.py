@@ -30,6 +30,7 @@ from src.types import Metrics
 
 
 class Proxy(ABC):
+    """Define proxy to approximate target metric from model"""
     def __init__(self) -> None:
         self.num_samples = DEFAULT_PROXY_BATCH_SIZE
         self.higher_is_better = None
@@ -51,6 +52,7 @@ class Proxy(ABC):
 
 
 class ProxyCollection(Proxy):
+    """Collate proxies and calculate all of them."""
     def __init__(self, proxies: List[Proxy]) -> None:
         super(ProxyCollection, self).__init__()
         self.proxies = {proxy.__class__.__name__: proxy for proxy in proxies}
@@ -67,6 +69,7 @@ class ProxyCollection(Proxy):
 
 
 class Ensemble(Proxy):
+    """Combine proxies using a linear regression model."""
     def __init__(self, proxy_collection: ProxyCollection) -> None:
         super(Proxy, self).__init__()
         self.proxy_collection = proxy_collection
@@ -98,6 +101,12 @@ class NumParams(Proxy):
 
 
 class SynFlow(Proxy):
+    """Implement SynFlow
+
+    References:
+        Abdelfattah et al. Zero-Cost Proxies for Lightweight NAS
+        https://arxiv.org/abs/2101.08134
+    """
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         weights = _get_model_weights(model)
         preds = model(
@@ -115,6 +124,12 @@ class SynFlow(Proxy):
 
 
 class JacobianCovariance(Proxy):
+    """Implement JacobCov from 'Neural Architecture Search without Training'
+
+    References:
+        Joseph Mellor et al. Neural Architecture Search without Training
+        https://arxiv.org/abs/2006.04647
+    """
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         jacobian = self._compute_batch_jacobian(model, dataset)
         correlations = torch.corrcoef(jacobian)
@@ -135,6 +150,12 @@ class JacobianCovariance(Proxy):
 
 
 class GradientNorm(Proxy):
+    """Implement GradNorm
+
+    References:
+        Abdelfattah et al. Zero-Cost Proxies for Lightweight NAS
+        https://arxiv.org/abs/2101.08134
+    """
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         preds = model(batch.x, batch.edge_index, batch.batch)
@@ -146,6 +167,12 @@ class GradientNorm(Proxy):
 
 
 class Snip(Proxy):
+    """Implement Snip zero-cost proxy
+
+    References:
+        Abdelfattah et al. Zero-Cost Proxies for Lightweight NAS
+        https://arxiv.org/abs/2101.08134
+    """
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         weights = _get_model_weights(model)
@@ -158,6 +185,12 @@ class Snip(Proxy):
 
 
 class ZiCo(Proxy):
+    """Implement ZiCo zero-cost proxy
+
+    References:
+        Li et al. ZiCo: Zero-shot NAS via Inverse Coefficient of Variation on Gradients
+        https://arxiv.org/abs/2301.11300
+    """
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         weights = _get_model_weights(model)
@@ -177,6 +210,12 @@ class ZiCo(Proxy):
 
 
 class Grasp(Proxy):
+    """Implement Grasp zero-cost proxy
+
+    References:
+        Abdelfattah et al. Zero-Cost Proxies for Lightweight NAS
+        https://arxiv.org/abs/2101.08134
+    """
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         batch = _get_data_samples(model, dataset.dataset, self.num_samples)
         weights = _get_model_weights(model)
@@ -195,6 +234,12 @@ class Grasp(Proxy):
 
 
 class Fisher(Proxy):
+    """Implement Fisher zero-cost proxy
+
+    References:
+        Abdelfattah et al. Zero-Cost Proxies for Lightweight NAS
+        https://arxiv.org/abs/2101.08134
+    """
     def _compute(self, model: GNNModule, dataset: NamedLabelledDataset) -> Tensor:
         # Attach forward hook to capture activations
         def activation_hook(module: Module, _: Tensor, output: Tensor) -> None:
@@ -227,7 +272,7 @@ class Fisher(Proxy):
         return sum(saliency_per_activation)
 
 # ----------------------------------------------
-# Novel Proxies
+# Novel explainability-oriented proxies
 
 
 class LatentSparsityGrad(Proxy):
