@@ -143,6 +143,10 @@ def silhouette_score(encodings: Tensor, cluster_labels: Tensor) -> Tensor:
         This code is adapted from the NumPy implementation given in
         https://scikit-learn.org/stable/modules/generated/sklearn.metrics.silhouette_score.html
     """
+    if encodings.device != cluster_labels.device:
+        raise ValueError("Encodings and cluster labels must be on the same device.")
+    if encodings.size(0) != cluster_labels.size(0):
+        raise ValueError("Encoding and cluster labels should have the same length.")
     clusters_encodings = [encodings[cluster_labels == label] for label in cluster_labels.unique()]
     intra_cluster_distances = _intra_cluster_distances(clusters_encodings)
     inter_cluster_distances = _inter_cluster_distances(clusters_encodings)
